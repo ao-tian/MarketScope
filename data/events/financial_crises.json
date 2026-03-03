@@ -1,0 +1,79 @@
+[
+  {
+    "id": "wall-street-1929",
+    "date": "1929-10-24",
+    "title": "Wall Street Crash of 1929",
+    "category": "Market Crashes",
+    "description": "Triggered the Great Depression. Dow fell ~89%. Black Thursday marked the start; Black Tuesday (Oct 29) was the worst day. Recovery took decades."
+  },
+  {
+    "id": "black-monday-1987",
+    "date": "1987-10-19",
+    "title": "Black Monday",
+    "category": "Market Crashes",
+    "description": "Dow dropped 22% in one day — the largest single-day percentage decline in history. Caused by program trading and panic selling."
+  },
+  {
+    "id": "dot-com-bubble",
+    "date": "2000-03-10",
+    "title": "Dot-com Bubble Burst",
+    "category": "Market Crashes",
+    "description": "Tech stock speculation peaked. Nasdaq fell ~78% from March 2000 to October 2002. Many internet companies collapsed."
+  },
+  {
+    "id": "lehman-financial-crisis",
+    "date": "2008-09-15",
+    "title": "Lehman & Global Financial Crisis",
+    "category": "Institutional Failures",
+    "description": "Lehman Brothers collapse triggered global financial panic. Housing and banking crisis. S&P 500 fell ~57%. Led to massive government bailouts."
+  },
+  {
+    "id": "sept-11",
+    "date": "2001-09-11",
+    "title": "September 11 Attacks",
+    "category": "Geopolitical",
+    "description": "Markets closed for days. Increased volatility and uncertainty. NYSE closed until Sept 17."
+  },
+  {
+    "id": "brexit",
+    "date": "2016-06-24",
+    "title": "Brexit Referendum",
+    "category": "Geopolitical",
+    "description": "UK voted to leave the EU. Currency and European market turbulence. Sterling fell sharply."
+  },
+  {
+    "id": "ukraine-invasion",
+    "date": "2022-02-24",
+    "title": "Russian Invasion of Ukraine",
+    "category": "Geopolitical",
+    "description": "Energy price shocks, commodity volatility. Global inflation pressure. Markets initially fell, then fluctuated."
+  },
+  {
+    "id": "covid-crash",
+    "date": "2020-03-16",
+    "title": "COVID-19 Stock Market Crash",
+    "category": "Global Health",
+    "description": "Fastest bear market in history. Sharp V-shaped recovery after stimulus. S&P 500 fell ~34% in about a month."
+  },
+  {
+    "id": "volcker-shock",
+    "date": "1979-10-06",
+    "title": "Volcker Shock",
+    "category": "Monetary Policy",
+    "description": "Fed raised interest rates dramatically to combat inflation. Rates peaked above 19% in 1981. Caused recession but achieved long-term stability."
+  },
+  {
+    "id": "quantitative-easing",
+    "date": "2008-11-25",
+    "title": "Quantitative Easing",
+    "category": "Monetary Policy",
+    "description": "Fed announced QE1 — massive liquidity injections post-2008. Boosted asset prices globally. Multiple rounds through 2014."
+  },
+  {
+    "id": "svb-collapse",
+    "date": "2023-03-10",
+    "title": "Silicon Valley Bank Collapse",
+    "category": "Institutional Failures",
+    "description": "Second-largest bank failure in US history. Regional banking instability. Short-term market volatility. FDIC took over."
+  }
+]

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MarketScope: A Visual Atlas of the U.S. Stocks</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">MARKETSCOPE</a>
+      <div class="nav-links">
+        <a href="#" class="nav-link" data-route="home">Home</a>
+        <a href="#" class="nav-link" data-route="stocks">Stocks</a>
+        <a href="#" class="nav-link" data-route="crypto">Cryptocurrency</a>
+      </div>
+    </div>
+  </nav>
+
+  <header id="hero" class="cinematic-hero">
+    <div class="hero-background">
+      <div class="hero-overlay"></div>
+      <svg id="particles-svg" class="particles-svg" aria-hidden="true"></svg>
+    </div>
+    <div class="hero-content">
+      <h1 class="hero-main-title">
+        <span class="title-line">MarketScope</span>
+      </h1>
+      <p class="hero-subtitle">A Visual Atlas of the U.S. Stocks</p>
+      <p class="hero-description">Understanding markets through data</p>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="playfield" class="playfield-section" hidden>
+      <div class="playfield-inner">
+        <div class="playfield-search">
+          <input type="text" class="playfield-search-input" placeholder="Search stocks by symbol (e.g. AAPL, MSFT)..." autocomplete="off" />
+          <div class="playfield-search-results" aria-live="polite"></div>
+        </div>
+        <div class="playfield-stock-panel playfield-stock-panel-empty">
+          <button type="button" class="playfield-back-to-main" aria-label="Back to Stocks">← Back to Stocks</button>
+          <div class="playfield-stock-header"></div>
+          <div class="playfield-trending" aria-label="Popular stocks to explore"></div>
+          <div class="playfield-bubble-chart" aria-label="Stock bubble map by market cap"></div>
+          <div class="playfield-data-range-banner" aria-live="polite"></div>
+          <div class="playfield-price-row">
+            <span class="playfield-price"></span>
+            <div class="playfield-change"></div>
+          </div>
+          <div class="playfield-date-filters">
+            <label class="playfield-date-label">
+              <span>Start</span>
+              <input type="date" class="playfield-date-start" />
+            </label>
+            <label class="playfield-date-label">
+              <span>End</span>
+              <input type="date" class="playfield-date-end" />
+            </label>
+            <button type="button" class="playfield-date-apply">Apply</button>
+          </div>
+          <div class="playfield-chart-toolbar">
+            <p class="playfield-chart-tutorial">Gold markers show major financial events. Click one to see details and zoom to that period.</p>
+            <button type="button" class="playfield-go-back" hidden aria-label="Restore previous time range">← Go back</button>
+          </div>
+          <div class="playfield-chart"></div>
+          <div class="playfield-metrics"></div>
+          <div class="playfield-ma-chart" aria-label="15-day and 45-day moving average"></div>
+        </div>
+      </div>
+    </section>
+    <section id="crypto-playfield" class="playfield-section" hidden>
+      <div class="playfield-inner">
+        <div class="playfield-search">
+          <input type="text" class="playfield-search-input" placeholder="Search cryptocurrency by symbol (e.g. BTC, ETH, SOL)..." autocomplete="off" />
+          <div class="playfield-search-results" aria-live="polite"></div>
+        </div>
+        <div class="playfield-stock-panel playfield-stock-panel-empty">
+          <button type="button" class="playfield-back-to-main" aria-label="Back to Cryptocurrency">← Back to Cryptocurrency</button>
+          <div class="playfield-stock-header"></div>
+          <div class="playfield-trending" aria-label="Popular cryptocurrencies to explore"></div>
+          <div class="playfield-bubble-chart" aria-label="Cryptocurrency bubble map"></div>
+          <div class="playfield-data-range-banner" aria-live="polite"></div>
+          <div class="playfield-price-row">
+            <span class="playfield-price"></span>
+            <div class="playfield-change"></div>
+          </div>
+          <div class="playfield-date-filters">
+            <label class="playfield-date-label">
+              <span>Start</span>
+              <input type="date" class="playfield-date-start" />
+            </label>
+            <label class="playfield-date-label">
+              <span>End</span>
+              <input type="date" class="playfield-date-end" />
+            </label>
+            <button type="button" class="playfield-date-apply">Apply</button>
+          </div>
+          <div class="playfield-chart-toolbar">
+            <p class="playfield-chart-tutorial">Gold markers show major financial events. Click one to see details and zoom to that period.</p>
+            <button type="button" class="playfield-go-back" hidden aria-label="Restore previous time range">← Go back</button>
+          </div>
+          <div class="playfield-chart"></div>
+          <div class="playfield-metrics"></div>
+          <div class="playfield-ma-chart" aria-label="15-day and 45-day moving average"></div>
+        </div>
+      </div>
+    </section>
+    <div id="event-toast" class="event-toast" role="status" aria-hidden="true"></div>
+    <div id="playfield-ma-learn-more-modal" class="playfield-ma-modal" role="dialog" aria-labelledby="ma-modal-title" aria-hidden="true">
+      <div class="playfield-ma-modal-backdrop"></div>
+      <div class="playfield-ma-modal-dialog">
+        <button type="button" class="playfield-ma-modal-close" aria-label="Close">×</button>
+        <div class="playfield-ma-modal-content">
+          <h2 id="ma-modal-title" class="playfield-ma-modal-title">Understanding the 15-day & 45-day Moving Average Chart</h2>
+          <div class="playfield-ma-modal-body">
+            <section>
+              <h3>Purpose of This Graph</h3>
+              <p>This chart helps you visualize <strong>smoothed price trends</strong> over time. Instead of looking at every daily price (which can be noisy and hard to interpret), moving averages (MAs) smooth out the data by averaging prices over a fixed window. This makes it easier to see the underlying direction of the market—whether a stock or asset is trending up, down, or sideways.</p>
+              <p>The chart plots two MAs simultaneously so you can compare short-term momentum (15-day) with longer-term trend (45-day). Where they cross provides potential entry or exit signals that traders and analysts have used for decades.</p>
+            </section>
+            <section>
+              <h3>How to Read the Chart</h3>
+              <ul>
+                <li><strong>Orange line (15-day MA):</strong> The average of the closing price over the last 15 trading days. It reacts <em>faster</em> to recent price changes because it uses a shorter window. When the price rises or falls, this line moves sooner.</li>
+                <li><strong>Purple line (45-day MA):</strong> The average over the last 45 trading days. It represents the <em>longer-term trend</em> and is smoother. It filters out short-lived noise and shows a more stable view of where price has been heading.</li>
+                <li><strong>Yellow dots (Crossover points):</strong> These mark exact moments when the 15-day and 45-day lines cross. A crossover happens when the short-term trend changes relative to the long-term trend—often interpreted as a shift in sentiment or momentum.</li>
+              </ul>
+              <p><strong>Y-axis:</strong> Price in dollars. <strong>X-axis:</strong> Time (date). The grid helps you align prices with specific dates.</p>
+            </section>
+            <section>
+              <h3>How to Use It</h3>
+              <p><strong>Golden Cross ( bullish signal):</strong> When the orange line crosses <em>above</em> the purple line, some traders interpret this as a potential buy signal. It suggests short-term momentum has turned positive relative to the longer trend.</p>
+              <p><strong>Death Cross (bearish signal):</strong> When the orange line crosses <em>below</em> the purple line, it can indicate a potential sell signal. Short-term momentum has weakened compared to the longer-term trend.</p>
+              <p><strong>Caution:</strong> Crossovers are lagging indicators—they reflect what has already happened, not what will happen. They work best as one input among many, not as a standalone trading rule. Always consider context (e.g., news, fundamentals, market conditions).</p>
+            </section>
+            <section>
+              <h3>Time Range: Shorter Is Often Better</h3>
+              <p>For study and learning, <strong>shorter time ranges are more useful</strong>. With 1–3 years of data, you can see crossovers clearly, understand how they relate to price moves, and compare different market phases. Over decades, the chart compresses and crossovers become harder to distinguish; the lines can look flat and less informative.</p>
+              <p>Use the date filters above this chart to focus on a specific period (e.g., 1–2 years around a market event). This helps you connect what you see in the chart to real-world events and build intuition about how moving averages behave.</p>
+            </section>
+            <section>
+              <h3>Glossary</h3>
+              <ul>
+                <li><strong>Moving Average (MA):</strong> The average of closing prices over a fixed number of past days. Each day, the window slides forward and a new average is computed.</li>
+                <li><strong>Crossover:</strong> The point where two moving average lines intersect.</li>
+                <li><strong>Golden Cross:</strong> The short-term MA crosses above the long-term MA (often bullish).</li>
+                <li><strong>Death Cross:</strong> The short-term MA crosses below the long-term MA (often bearish).</li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+    <section id="section-1" class="story-section">
+      <div class="section-layout">
+        <div class="section-explanation">
+          <h2 class="section-title">What is stock?</h2>
+          <p class="section-description">
+            Let's start by investigating how the S&P 500 — America's top 500 publicly traded companies — are distributed across the United States.
+          </p>
+        </div>
+        <div class="section-graph">
+          <div id="viz-1" class="viz-container viz-card"></div>
+        </div>
+      </div>
+      <div class="section-layout section-layout-viz">
+        <div class="section-explanation">
+          <p class="section-description">
+            Drag the time bar to see how the corporate landscape grew: each year shows only companies founded by that point. This reveals how America's largest public companies—the ones you can buy stock in—spread across the country over time. More companies in a state means more investment opportunities tied to that place.
+          </p>
+        </div>
+        <div class="section-graph">
+          <div id="viz-2" class="viz-container viz-card viz-card-alt"></div>
+        </div>
+      </div>
+      <div class="section-layout section-layout-viz">
+        <div class="section-explanation">
+          <p class="section-description">
+            A stock is simply a share of ownership in a company. Below, we break down the basics: how stocks work, how the S&P 500 is split across sectors, and how prices move over time. Together with the maps above, this shows where and what these companies are—and why understanding them matters.
+          </p>
+        </div>
+        <div class="section-graph">
+              <!--
+                <p class="section-description">
+                Drag the time bar to see how the corporate landscape grew: each year shows only companies founded by that point. This reveals how America’s largest public companies—the ones you can buy stock in—spread across the country over time.               More companies in a state means more investment opportunities tied to that place.
+              </p>
+          -->
+          <div id="viz-3" class="viz-container viz-card viz-card-alt stock-explainer-container"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
