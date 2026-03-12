@@ -40,8 +40,8 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
     '<p class="playfield-bubble-chart-title">S&P 500 by market cap · Click a bubble to explore</p>'
   );
 
-  const width = Math.max(400, container.clientWidth || 600);
-  const height = 420;
+  const width = Math.max(500, container.clientWidth || 600);
+  const height = Math.min(680, Math.max(520, width * 0.45));
 
   const root = d3.hierarchy({ children: available }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
@@ -88,9 +88,9 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
     .attr('dy', '0.35em')
     .attr('text-anchor', 'middle')
     .attr('fill', '#fff')
-    .attr('font-size', (d) => Math.min(14, d.r * 0.5))
+    .attr('font-size', (d) => Math.min(22, d.r * 0.6))
     .attr('font-weight', 600)
-    .text((d) => (d.r > 20 ? d.data.symbol : ''));
+    .text((d) => (d.r > 16 ? d.data.symbol : ''));
 
   node.append('title').text((d) => `${d.data.name} (${d.data.symbol})\n${d.data.sector}`);
 
@@ -128,8 +128,8 @@ export function renderCryptoBubbles(container, { cryptoList, onSelect }) {
     color: colors[i % colors.length],
   }));
 
-  const width = Math.max(400, container.clientWidth || 600);
-  const height = 380;
+  const width = Math.max(500, container.clientWidth || 600);
+  const height = Math.min(580, Math.max(460, width * 0.42));
 
   const root = d3.hierarchy({ children: items }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
@@ -176,9 +176,9 @@ export function renderCryptoBubbles(container, { cryptoList, onSelect }) {
     .attr('dy', '0.35em')
     .attr('text-anchor', 'middle')
     .attr('fill', '#fff')
-    .attr('font-size', (d) => Math.min(14, d.r * 0.55))
+    .attr('font-size', (d) => Math.min(20, d.r * 0.65))
     .attr('font-weight', 600)
-    .text((d) => (d.r > 18 ? d.data.symbol : ''));
+    .text((d) => (d.r > 14 ? d.data.symbol : ''));
 
   node.append('title').text((d) => `${d.data.name} (${d.data.symbol})`);
 

@@ -89,9 +89,9 @@ export function renderMAChart(container, ohlcv) {
     learnMoreBtn.addEventListener('click', openMALearnMoreModal);
   }
 
-  const margin = { top: 20, right: 52, bottom: 110, left: 60 };
+  const margin = { top: 24, right: 56, bottom: 120, left: 68 };
   const width = Math.max(320, (container.clientWidth || 400) - margin.left - margin.right);
-  const height = 300;
+  const height = 420;
 
   const x = d3.scaleTime().domain(d3.extent(ma15, (d) => d.date)).range([0, width]);
   const allVals = [...ma15.map((d) => d.ma), ...ma45.map((d) => d.ma)];
@@ -128,7 +128,7 @@ export function renderMAChart(container, ohlcv) {
     .attr('class', 'playfield-ma-crossover')
     .attr('cx', (d) => x(d.date))
     .attr('cy', (d) => y(d.value))
-    .attr('r', 4);
+    .attr('r', 5);
 
   g.append('g')
     .attr('class', 'playfield-ma-axis playfield-ma-axis-x')
@@ -138,7 +138,7 @@ export function renderMAChart(container, ohlcv) {
   g.append('text')
     .attr('class', 'playfield-ma-axis-label playfield-ma-axis-label-x')
     .attr('x', width / 2)
-    .attr('y', height + 48)
+    .attr('y', height + 52)
     .attr('text-anchor', 'middle')
     .text('Date');
 
@@ -148,20 +148,20 @@ export function renderMAChart(container, ohlcv) {
 
   g.append('text')
     .attr('class', 'playfield-ma-axis-label playfield-ma-axis-label-y')
-    .attr('transform', `translate(-36, ${height / 2}) rotate(-90)`)
+    .attr('transform', `translate(-42, ${height / 2}) rotate(-90)`)
     .attr('text-anchor', 'middle')
     .text('Price ($)');
 
-  const legendY = height + 88;
-  const legendX = margin.left + (width / 2) - 85;
+  const legendY = height + margin.bottom - 28;
+  const legendX = margin.left + (width / 2) - 140;
   const legend = svg
     .append('g')
     .attr('class', 'playfield-ma-legend')
     .attr('transform', `translate(${legendX}, ${legendY})`);
-  legend.append('line').attr('x1', 0).attr('x2', 18).attr('y1', 0).attr('y2', 0).attr('class', 'playfield-ma-legend-15');
-  legend.append('text').attr('x', 22).attr('y', 4).attr('class', 'playfield-ma-legend-text').text('15-day');
-  legend.append('line').attr('x1', 70).attr('x2', 88).attr('y1', 0).attr('y2', 0).attr('class', 'playfield-ma-legend-45');
-  legend.append('text').attr('x', 92).attr('y', 4).attr('class', 'playfield-ma-legend-text').text('45-day');
-  legend.append('circle').attr('cx', 145).attr('cy', 0).attr('r', 4).attr('class', 'playfield-ma-legend-crossover');
-  legend.append('text').attr('x', 154).attr('y', 4).attr('class', 'playfield-ma-legend-text').text('Crossover');
+  legend.append('line').attr('x1', 0).attr('x2', 22).attr('y1', 0).attr('y2', 0).attr('class', 'playfield-ma-legend-15');
+  legend.append('text').attr('x', 28).attr('y', 5).attr('class', 'playfield-ma-legend-text').text('15-day');
+  legend.append('line').attr('x1', 110).attr('x2', 132).attr('y1', 0).attr('y2', 0).attr('class', 'playfield-ma-legend-45');
+  legend.append('text').attr('x', 138).attr('y', 5).attr('class', 'playfield-ma-legend-text').text('45-day');
+  legend.append('circle').attr('cx', 220).attr('cy', 0).attr('r', 5).attr('class', 'playfield-ma-legend-crossover');
+  legend.append('text').attr('x', 231).attr('y', 5).attr('class', 'playfield-ma-legend-text').text('Crossover');
 }

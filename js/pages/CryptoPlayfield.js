@@ -218,44 +218,63 @@ export function initCryptoPlayfield(container, { cryptoList }) {
       <table class="playfield-metrics-table">
         <tbody>
           <tr>
-            <td><span class="playfield-metric-label">Open <button type="button" class="playfield-metric-help" aria-label="What does Open mean?" data-metric="open">?</button></span><span class="playfield-metric-value">${formatPrice(open)}</span></td>
-            <td><span class="playfield-metric-label">High <button type="button" class="playfield-metric-help" aria-label="What does High mean?" data-metric="high">?</button></span><span class="playfield-metric-value">${formatPrice(high)}</span></td>
-            <td><span class="playfield-metric-label">Low <button type="button" class="playfield-metric-help" aria-label="What does Low mean?" data-metric="low">?</button></span><span class="playfield-metric-value">${formatPrice(low)}</span></td>
+            <td><span class="playfield-metric-label">Open</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatPrice(open)}</span><button type="button" class="playfield-metric-help" aria-label="What does Open mean?" data-metric="open">?</button></span></td>
+            <td><span class="playfield-metric-label">High</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatPrice(high)}</span><button type="button" class="playfield-metric-help" aria-label="What does High mean?" data-metric="high">?</button></span></td>
+            <td><span class="playfield-metric-label">Low</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatPrice(low)}</span><button type="button" class="playfield-metric-help" aria-label="What does Low mean?" data-metric="low">?</button></span></td>
           </tr>
           <tr>
-            <td><span class="playfield-metric-label">Mkt cap <button type="button" class="playfield-metric-help" aria-label="What does Mkt cap mean?" data-metric="mktcap">?</button></span><span class="playfield-metric-value">${formatCap(mktCap)}</span></td>
-            <td><span class="playfield-metric-label">52-wk high <button type="button" class="playfield-metric-help" aria-label="What does 52-wk high mean?" data-metric="week52high">?</button></span><span class="playfield-metric-value">${formatPrice(week52)}</span></td>
-            <td><span class="playfield-metric-label">52-wk low <button type="button" class="playfield-metric-help" aria-label="What does 52-wk low mean?" data-metric="week52low">?</button></span><span class="playfield-metric-value">${formatPrice(week52Low)}</span></td>
+            <td><span class="playfield-metric-label">Mkt cap</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatCap(mktCap)}</span><button type="button" class="playfield-metric-help" aria-label="What does Mkt cap mean?" data-metric="mktcap">?</button></span></td>
+            <td><span class="playfield-metric-label">52-wk high</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatPrice(week52)}</span><button type="button" class="playfield-metric-help" aria-label="What does 52-wk high mean?" data-metric="week52high">?</button></span></td>
+            <td><span class="playfield-metric-label">52-wk low</span><span class="playfield-metric-cell"><span class="playfield-metric-value">${formatPrice(week52Low)}</span><button type="button" class="playfield-metric-help" aria-label="What does 52-wk low mean?" data-metric="week52low">?</button></span></td>
           </tr>
         </tbody>
       </table>
       </div>
-      <div class="playfield-metric-tooltip" role="dialog" aria-hidden="true">
+      <div class="playfield-metric-tooltip" role="tooltip" aria-hidden="true">
         <div class="playfield-metric-tooltip-content"></div>
-        <button type="button" class="playfield-metric-tooltip-close" aria-label="Close">×</button>
       </div>
     `;
 
     const tooltip = metricsEl.querySelector('.playfield-metric-tooltip');
     const tooltipContent = metricsEl.querySelector('.playfield-metric-tooltip-content');
-    const tooltipClose = metricsEl.querySelector('.playfield-metric-tooltip-close');
+    let hideTimer = null;
 
-    function hideTooltip() {
-      tooltip?.setAttribute('aria-hidden', 'true');
-      tooltip?.classList.remove('playfield-metric-tooltip-visible');
+    function showTooltip(btn) {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = null;
+      const key = btn.getAttribute('data-metric');
+      const html = getMetricHelpHtml(key);
+      if (tooltipContent) tooltipContent.innerHTML = html;
+      const rect = btn.getBoundingClientRect();
+      tooltip.style.left = `${rect.left}px`;
+      tooltip.style.top = `${rect.top - 8}px`;
+      tooltip.style.transform = 'translateY(-100%)';
+      tooltip?.setAttribute('aria-hidden', 'false');
+      tooltip?.classList.add('playfield-metric-tooltip-visible');
     }
 
-    tooltipClose?.addEventListener('click', hideTooltip);
+    function hideTooltip() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        tooltip?.setAttribute('aria-hidden', 'true');
+        tooltip?.classList.remove('playfield-metric-tooltip-visible');
+      }, 120);
+    }
+
+    function cancelHide() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = null;
+    }
 
     metricsEl.querySelectorAll('.playfield-metric-help').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const key = btn.getAttribute('data-metric');
-        const html = getMetricHelpHtml(key);
-        if (tooltipContent) tooltipContent.innerHTML = html;
-        tooltip?.setAttribute('aria-hidden', 'false');
-        tooltip?.classList.add('playfield-metric-tooltip-visible');
-      });
+      btn.addEventListener('mouseenter', () => showTooltip(btn));
+      btn.addEventListener('mouseleave', hideTooltip);
+    });
+    tooltip?.addEventListener('mouseenter', cancelHide);
+    tooltip?.addEventListener('mouseleave', () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      tooltip?.setAttribute('aria-hidden', 'true');
+      tooltip?.classList.remove('playfield-metric-tooltip-visible');
     });
 
     renderMAChart(maChartWrap, ohlcv);
@@ -342,6 +361,57 @@ export function initCryptoPlayfield(container, { cryptoList }) {
         return t >= minT && t <= maxT;
       });
       const eventToast = document.getElementById('event-toast');
+      let hoverHideTimeout = null;
+
+      function showEventToast(d, hideOnLeave = false, anchorEl = null) {
+        if (!eventToast) return;
+        const dateStr = formatDateLabel(new Date(d.date));
+        eventToast.innerHTML = `
+          <button type="button" class="event-toast-close" aria-label="Close">×</button>
+          <div class="event-toast-category">${d.category}</div>
+          <div class="event-toast-title">${d.title}</div>
+          <div class="event-toast-date">${dateStr}</div>
+          <div class="event-toast-desc">${d.description}</div>
+        `;
+        if (anchorEl) {
+          const rect = anchorEl.getBoundingClientRect();
+          const gap = 28;
+          const pad = 12;
+          const estW = 460;
+          const estH = 220;
+          let left = rect.left + (rect.width / 2) - (estW / 2);
+          let top = rect.top - estH - gap;
+          if (left < pad) left = pad;
+          if (left + estW > window.innerWidth - pad) left = window.innerWidth - estW - pad;
+          if (top < pad) top = rect.bottom + gap;
+          eventToast.style.left = `${left}px`;
+          eventToast.style.top = `${top}px`;
+        } else {
+          eventToast.style.left = '';
+          eventToast.style.top = '';
+        }
+        eventToast.classList.add('event-toast-visible');
+        eventToast.setAttribute('aria-hidden', 'false');
+        eventToast.querySelector('.event-toast-close')?.addEventListener('click', () => {
+          eventToast.classList.remove('event-toast-visible');
+          eventToast.setAttribute('aria-hidden', 'true');
+          eventToast.innerHTML = '';
+        });
+        if (hideOnLeave) {
+          eventToast.addEventListener('mouseenter', function cancelHoverHide() {
+            if (hoverHideTimeout) {
+              clearTimeout(hoverHideTimeout);
+              hoverHideTimeout = null;
+            }
+          }, { once: true });
+          eventToast.addEventListener('mouseleave', function onToastLeave() {
+            eventToast.classList.remove('event-toast-visible');
+            eventToast.setAttribute('aria-hidden', 'true');
+            eventToast.innerHTML = '';
+          }, { once: true });
+        }
+      }
+
       inRange.forEach((evt) => {
         const evtDate = new Date(evt.date);
         const cx = x(evtDate);
@@ -360,6 +430,25 @@ export function initCryptoPlayfield(container, { cryptoList }) {
             .attr('r', 6)
             .attr('data-event', JSON.stringify(evt))
             .style('pointer-events', 'all');
+          circle.on('mouseover', (e) => {
+            e.stopPropagation();
+            if (hoverHideTimeout) {
+              clearTimeout(hoverHideTimeout);
+              hoverHideTimeout = null;
+            }
+            const d = JSON.parse(circle.attr('data-event'));
+            showEventToast(d, true, e.target);
+          });
+          circle.on('mouseout', () => {
+            hoverHideTimeout = setTimeout(() => {
+              if (eventToast) {
+                eventToast.classList.remove('event-toast-visible');
+                eventToast.setAttribute('aria-hidden', 'true');
+                eventToast.innerHTML = '';
+              }
+              hoverHideTimeout = null;
+            }, 150);
+          });
           circle.on('click', (e) => {
             e.stopPropagation();
             if (!eventToast || !currentData || !dataStart || !dataEnd) return;
@@ -391,20 +480,7 @@ export function initCryptoPlayfield(container, { cryptoList }) {
             goBackBtn?.removeAttribute('hidden');
             tutorialEl?.classList.add('playfield-chart-tutorial-hidden');
 
-            eventToast.innerHTML = `
-              <button type="button" class="event-toast-close" aria-label="Close">×</button>
-              <div class="event-toast-category">${d.category}</div>
-              <div class="event-toast-title">${d.title}</div>
-              <div class="event-toast-date">${dateStr}</div>
-              <div class="event-toast-desc">${d.description}</div>
-            `;
-            eventToast.classList.add('event-toast-visible');
-            eventToast.setAttribute('aria-hidden', 'false');
-            eventToast.querySelector('.event-toast-close')?.addEventListener('click', () => {
-              eventToast.classList.remove('event-toast-visible');
-              eventToast.setAttribute('aria-hidden', 'true');
-              eventToast.innerHTML = '';
-            });
+            showEventToast(d, false);
           });
         }
       });
@@ -483,7 +559,7 @@ export function initCryptoPlayfield(container, { cryptoList }) {
 
   function renderTrendingCrypto() {
     if (!trendingEl || !cryptoList?.length) return;
-    const top = (cryptoList || []).slice(0, 10);
+    const top = (cryptoList || []).slice(0, 14);
     trendingEl.innerHTML = `
       <p class="playfield-trending-title">Popular cryptocurrencies to explore</p>
       <div class="playfield-trending-grid">

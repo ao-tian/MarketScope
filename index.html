@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarketScope: A Visual Atlas of the U.S. Stocks</title>
+  <title>MarketScope: Stock Playfield & Investing Tutorial</title>
   <link rel="stylesheet" href="css/main.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fredoka:wght@400;500;600;700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar" role="navigation" aria-label="Main navigation">
@@ -17,6 +17,7 @@
         <a href="#" class="nav-link" data-route="home">Home</a>
         <a href="#" class="nav-link" data-route="stocks">Stocks</a>
         <a href="#" class="nav-link" data-route="crypto">Cryptocurrency</a>
+        <a href="#" class="nav-link" data-route="personalize">Personalize</a>
       </div>
     </div>
   </nav>
@@ -30,8 +31,8 @@
       <h1 class="hero-main-title">
         <span class="title-line">MarketScope</span>
       </h1>
-      <p class="hero-subtitle">A Visual Atlas of the U.S. Stocks</p>
-      <p class="hero-description">Understanding markets through data</p>
+      <p class="hero-subtitle">Stock Playfield & Investing Tutorial</p>
+      <p class="hero-description">Learn investing by playing with your own timeline—see how much you could have earned</p>
     </div>
   </header>
 
@@ -39,7 +40,7 @@
     <section id="playfield" class="playfield-section" hidden>
       <div class="playfield-inner">
         <div class="playfield-search">
-          <input type="text" class="playfield-search-input" placeholder="Search stocks by symbol (e.g. AAPL, MSFT)..." autocomplete="off" />
+          <input type="text" class="playfield-search-input" placeholder="Search by symbol or company name (e.g. AAPL, Netflix)..." autocomplete="off" />
           <div class="playfield-search-results" aria-live="polite"></div>
         </div>
         <div class="playfield-stock-panel playfield-stock-panel-empty">
@@ -76,7 +77,7 @@
     <section id="crypto-playfield" class="playfield-section" hidden>
       <div class="playfield-inner">
         <div class="playfield-search">
-          <input type="text" class="playfield-search-input" placeholder="Search cryptocurrency by symbol (e.g. BTC, ETH, SOL)..." autocomplete="off" />
+          <input type="text" class="playfield-search-input" placeholder="Search by symbol or name (e.g. BTC, Bitcoin)..." autocomplete="off" />
           <div class="playfield-search-results" aria-live="polite"></div>
         </div>
         <div class="playfield-stock-panel playfield-stock-panel-empty">
@@ -156,44 +157,127 @@
         </div>
       </div>
     </div>
-    <section id="section-1" class="story-section">
-      <div class="section-layout">
-        <div class="section-explanation">
-          <h2 class="section-title">What is stock?</h2>
-          <p class="section-description">
-            Let's start by investigating how the S&P 500 — America's top 500 publicly traded companies — are distributed across the United States.
-          </p>
-        </div>
-        <div class="section-graph">
-          <div id="viz-1" class="viz-container viz-card"></div>
-        </div>
+    <section id="section-1" class="story-section story-section-viz-stack">
+      <div id="map-explorer-unified" class="map-explorer-unified viz-block viz-block-map">
+        <div id="viz-1" class="viz-map-explorer-container"></div>
       </div>
-      <div class="section-layout section-layout-viz">
-        <div class="section-explanation">
-          <p class="section-description">
-            Drag the time bar to see how the corporate landscape grew: each year shows only companies founded by that point. This reveals how America's largest public companies—the ones you can buy stock in—spread across the country over time. More companies in a state means more investment opportunities tied to that place.
-          </p>
-        </div>
-        <div class="section-graph">
-          <div id="viz-2" class="viz-container viz-card viz-card-alt"></div>
-        </div>
+      <div id="map-explorer-unified-2" class="map-explorer-unified section-layout-viz viz-block viz-block-timeline">
+        <div id="viz-2" class="viz-map-explorer-container"></div>
       </div>
-      <div class="section-layout section-layout-viz">
-        <div class="section-explanation">
-          <p class="section-description">
-            A stock is simply a share of ownership in a company. Below, we break down the basics: how stocks work, how the S&P 500 is split across sectors, and how prices move over time. Together with the maps above, this shows where and what these companies are—and why understanding them matters.
-          </p>
+      <div id="map-explorer-unified-3" class="map-explorer-unified section-layout-viz map-explorer-unified-expand viz-block viz-block-explainer">
+        <div id="viz-3" class="viz-map-explorer-container stock-explainer-container"></div>
+      </div>
+
+      <section class="invest-cta-section" aria-labelledby="invest-cta-heading">
+        <div class="invest-cta-background">
+          <div class="invest-cta-overlay"></div>
+          <svg id="particles-svg-invest" class="invest-cta-particles-svg" aria-hidden="true"></svg>
         </div>
-        <div class="section-graph">
-              <!--
-                <p class="section-description">
-                Drag the time bar to see how the corporate landscape grew: each year shows only companies founded by that point. This reveals how America’s largest public companies—the ones you can buy stock in—spread across the country over time.               More companies in a state means more investment opportunities tied to that place.
-              </p>
-          -->
-          <div id="viz-3" class="viz-container viz-card viz-card-alt stock-explainer-container"></div>
+        <div class="invest-cta-content">
+        <p id="invest-cta-heading" class="invest-cta-text">Your Investing Playfield</p>
+        <p class="invest-cta-proposal">Enter your details below. We’ll simulate investing your available funds in the best-performing companies at the time you choose—either from your birth or from when you’d like to start. See how much you could have earned and learn how markets work along the way.</p>
+        <form class="invest-cta-form" action="#" method="post" aria-label="Investment playfield form">
+          <div class="invest-form-panels">
+            <div class="invest-form-panel invest-form-panel-name">
+              <div class="invest-form-row">
+                <label class="invest-form-label" for="invest-name">Your name</label>
+                <input type="text" id="invest-name" name="name" class="invest-form-input" placeholder="e.g. Alex" autocomplete="name">
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-dob">
+              <div class="invest-form-row">
+                <label class="invest-form-label" for="invest-dob">Date of birth</label>
+                <input type="date" id="invest-dob" name="dob" class="invest-form-input" placeholder="When were you born?" min="1900-01-01" required>
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-start">
+              <div class="invest-form-row">
+                <label class="invest-form-label">When to start investing?</label>
+                <div class="invest-form-radio-group">
+                  <label class="invest-form-radio-wrap">
+                    <input type="radio" name="start_mode" value="birth" class="invest-form-radio" checked>
+                    <span>From my birth</span>
+                  </label>
+                  <label class="invest-form-radio-wrap">
+                    <input type="radio" name="start_mode" value="date" class="invest-form-radio">
+                    <span>From a specific date</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-start-date invest-form-row-start-date" id="invest-start-date-row" hidden>
+              <div class="invest-form-row">
+                <label class="invest-form-label" for="invest-start-date">Start investing from</label>
+                <input type="date" id="invest-start-date" name="start_date" class="invest-form-input" min="1900-01-01" max="2099-12-31">
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-money">
+              <div class="invest-form-row">
+                <label class="invest-form-label" for="invest-money">Available to invest ($)</label>
+                <input type="number" id="invest-money" name="available_money" class="invest-form-input" placeholder="Amount in dollars" min="0" step="0.01" required>
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-companies">
+              <div class="invest-form-row">
+                <label class="invest-form-label" for="invest-company-count">How many companies? (1–10)</label>
+                <input type="number" id="invest-company-count" name="company_count" class="invest-form-input" placeholder="e.g. 3" min="1" max="10" value="3">
+              </div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-allocations" id="invest-allocations-panel" hidden>
+              <div class="invest-form-row">
+                <label class="invest-form-label">Allocation % per company (must total 100%)</label>
+                <div id="invest-allocations-container" class="invest-allocations-container"></div>
+                <p id="invest-allocations-hint" class="invest-allocations-hint" aria-live="polite"></p>
+              </div>
+            </div>
+          </div>
+          <p id="invest-form-error" class="invest-form-error" aria-live="assertive" hidden></p>
+          <button type="submit" class="invest-form-submit">See my potential</button>
+        </form>
         </div>
+      </section>
+    </section>
+
+    <section id="personalize-page" class="personalize-section" hidden>
+      <div id="personalize-modal" class="personalize-modal" role="dialog" aria-label="Your personalized results">
+        <div class="personalize-money-bg" id="personalize-money-bg" aria-hidden="true"></div>
+        <button type="button" class="personalize-close" id="personalize-close-btn" aria-label="Close and return home">×</button>
+        <button type="button" class="personalize-nav personalize-nav-left" aria-label="Previous section" tabindex="-1">
+          <span aria-hidden="true">‹</span>
+        </button>
+        <button type="button" class="personalize-nav personalize-nav-right" aria-label="Next section">
+          <span aria-hidden="true">›</span>
+        </button>
+        <div class="personalize-modal-inner">
+          <div class="personalize-slides" id="personalize-slides">
+            <div class="personalize-slide personalize-slide-welcome" data-slide="0">
+              <div class="personalize-profile-summary" id="personalize-profile-summary"></div>
+              <div class="personalize-welcome-actions">
+                <button type="button" class="personalize-refill-btn" id="personalize-refill-btn">Update my info</button>
+                <button type="button" class="personalize-clear-btn" id="personalize-clear-btn">Clear info</button>
+              </div>
+              <p class="personalize-module-explanation">This module pretends you had a time machine and a crystal ball. We take your money and plop it into the S&amp;P 500 companies that *later* turned out to be the biggest winners—or the biggest losers. Swipe right to see both scenarios. It’s hindsight in reverse, it’s silly, and it might just teach you something about how wild markets can be. (Not financial advice. We’re not saying you could’ve actually done this.)</p>
+            </div>
+            <div class="personalize-slide personalize-slide-best" data-slide="1">
+              <h2 class="personalize-slide-title">Best case</h2>
+              <p class="personalize-slide-subtitle">If you invested in the top performers from your start date</p>
+              <div id="personalize-best-viz" class="personalize-viz"></div>
+            </div>
+            <div class="personalize-slide personalize-slide-worst" data-slide="2">
+              <h2 class="personalize-slide-title">Worst case</h2>
+              <p class="personalize-slide-subtitle">If you invested in the biggest decliners from your start date</p>
+              <div id="personalize-worst-viz" class="personalize-viz"></div>
+            </div>
+          </div>
+        </div>
+        <div class="personalize-dots" id="personalize-dots" aria-label="Slide navigation"></div>
       </div>
     </section>
+
+    <div id="personalize-prompt-toast" class="personalize-prompt-toast" role="dialog" aria-hidden="true">
+      <p class="personalize-prompt-text">Fill in your details below to unlock your personalized experience.</p>
+      <button type="button" class="personalize-prompt-scroll">Go to form</button>
+    </div>
   </main>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
