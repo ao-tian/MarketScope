@@ -177,58 +177,87 @@
         <p id="invest-cta-heading" class="invest-cta-text">Your Investing Playfield</p>
         <p class="invest-cta-proposal">Enter your details below. We’ll simulate investing your available funds in the best-performing companies at the time you choose—either from your birth or from when you’d like to start. See how much you could have earned and learn how markets work along the way.</p>
         <form class="invest-cta-form" action="#" method="post" aria-label="Investment playfield form">
-          <div class="invest-form-panels">
-            <div class="invest-form-panel invest-form-panel-name">
-              <div class="invest-form-row">
-                <label class="invest-form-label" for="invest-name">Your name</label>
-                <input type="text" id="invest-name" name="name" class="invest-form-input" placeholder="e.g. Alex" autocomplete="name">
-              </div>
-            </div>
-            <div class="invest-form-panel invest-form-panel-dob">
-              <div class="invest-form-row">
-                <label class="invest-form-label" for="invest-dob">Date of birth</label>
-                <input type="date" id="invest-dob" name="dob" class="invest-form-input" placeholder="When were you born?" min="1900-01-01" required>
+          <div class="invest-form-inner">
+            <div class="invest-form-panel invest-form-panel-name-dob">
+              <div class="invest-form-row invest-form-row-split">
+                <div class="invest-form-field">
+                  <label class="invest-form-label" for="invest-name">Your name</label>
+                  <input type="text" id="invest-name" name="name" class="invest-form-input" placeholder="Enter your name here" autocomplete="name">
+                </div>
+                <div class="invest-form-field">
+                  <label class="invest-form-label" for="invest-dob">Date of birth</label>
+                  <input type="date" id="invest-dob" name="dob" class="invest-form-input" min="1900-01-01" required>
+                </div>
               </div>
             </div>
             <div class="invest-form-panel invest-form-panel-start">
               <div class="invest-form-row">
                 <label class="invest-form-label">When to start investing?</label>
-                <div class="invest-form-radio-group">
+                <div class="invest-form-radio-group invest-form-radio-inline">
                   <label class="invest-form-radio-wrap">
                     <input type="radio" name="start_mode" value="birth" class="invest-form-radio" checked>
                     <span>From my birth</span>
                   </label>
-                  <label class="invest-form-radio-wrap">
+                  <label class="invest-form-radio-wrap invest-form-radio-with-date">
                     <input type="radio" name="start_mode" value="date" class="invest-form-radio">
                     <span>From a specific date</span>
+                    <input type="date" id="invest-start-date" name="start_date" class="invest-form-input invest-form-inline-date" min="1900-01-01" aria-label="Start date">
+                    <span class="invest-date-hint" id="invest-date-hint">Our stock data goes up to Nov 10, 2017. Pick a date on or before then.</span>
                   </label>
                 </div>
               </div>
             </div>
-            <div class="invest-form-panel invest-form-panel-start-date invest-form-row-start-date" id="invest-start-date-row" hidden>
-              <div class="invest-form-row">
-                <label class="invest-form-label" for="invest-start-date">Start investing from</label>
-                <input type="date" id="invest-start-date" name="start_date" class="invest-form-input" min="1900-01-01" max="2099-12-31">
+            <div class="invest-form-panel invest-form-panel-money-companies">
+              <div class="invest-form-row invest-form-row-split">
+                <div class="invest-form-field">
+                  <label class="invest-form-label" for="invest-money">Available to invest</label>
+                  <div class="invest-money-wrap">
+                    <span class="invest-money-prefix">$</span>
+                    <input type="number" id="invest-money" name="available_money" class="invest-form-input" placeholder="0" min="0" step="0.01" required>
+                  </div>
+                </div>
+                <div class="invest-form-field">
+                  <label class="invest-form-label" for="invest-company-count">How many companies? (1–10)</label>
+                  <input type="number" id="invest-company-count" name="company_count" class="invest-form-input" min="1" max="10" value="4">
+                </div>
               </div>
             </div>
-            <div class="invest-form-panel invest-form-panel-money">
-              <div class="invest-form-row">
-                <label class="invest-form-label" for="invest-money">Available to invest ($)</label>
-                <input type="number" id="invest-money" name="available_money" class="invest-form-input" placeholder="Amount in dollars" min="0" step="0.01" required>
+            <div class="invest-form-panel invest-form-panel-mode-choice" id="invest-mode-panel">
+              <p class="invest-mode-greeting" id="invest-mode-greeting">Ready to pick your plays? Invest in your own companies, or let us suggest a strategy.</p>
+              <div class="invest-mode-options">
+                <button type="button" class="invest-mode-btn" data-mode="own">Bring it on!</button>
+                <button type="button" class="invest-mode-btn" data-mode="plan">Give me some plans</button>
               </div>
             </div>
-            <div class="invest-form-panel invest-form-panel-companies">
-              <div class="invest-form-row">
-                <label class="invest-form-label" for="invest-company-count">How many companies? (1–10)</label>
-                <input type="number" id="invest-company-count" name="company_count" class="invest-form-input" placeholder="e.g. 3" min="1" max="10" value="3">
+            <div class="invest-form-panel invest-form-panel-custom-companies" id="invest-custom-panel" hidden>
+              <label class="invest-form-label">Companies you want to invest in</label>
+              <div class="invest-form-explanation-box">
+                <p class="invest-form-hint">We'll invest 100% of your available money across the companies below. The percentage you enter for each company is the share of your total investment that goes into that stock.</p>
+                <p class="invest-form-hint">Search and pick one company per slot. Allocations must total 100%.</p>
               </div>
+              <div id="invest-company-slots-container" class="invest-company-slots-container"></div>
+              <p id="invest-allocations-hint" class="invest-allocations-hint" aria-live="polite"></p>
             </div>
+            <div class="invest-form-panel invest-form-panel-strategy" id="invest-strategy-panel" hidden>
+              <label class="invest-form-label">Choose a strategy</label>
+              <p class="invest-form-hint">Pick a fund to mimic its holdings, or use Best &amp; Worst for top/bottom performers.</p>
+              <div class="invest-strategy-options" id="invest-strategy-options"></div>
+              <div class="invest-strategy-detail" id="invest-strategy-detail" hidden>
+                <h4 class="invest-strategy-detail-title">Selected strategy holdings</h4>
+                <ul class="invest-strategy-detail-list" id="invest-strategy-detail-list"></ul>
+              </div>
+              <input type="hidden" id="invest-strategy" name="strategy" value="best-worst">
+            </div>
+            <!-- Legacy panels kept for structure, visibility controlled by JS -->
             <div class="invest-form-panel invest-form-panel-allocations" id="invest-allocations-panel" hidden>
-              <div class="invest-form-row">
-                <label class="invest-form-label">Allocation % per company (must total 100%)</label>
-                <div id="invest-allocations-container" class="invest-allocations-container"></div>
-                <p id="invest-allocations-hint" class="invest-allocations-hint" aria-live="polite"></p>
-              </div>
+              <label class="invest-form-label">Allocation % per company (must total 100%)</label>
+              <div id="invest-allocations-container" class="invest-allocations-container"></div>
+            </div>
+            <div class="invest-form-panel invest-form-panel-company-select" id="invest-company-select-panel" hidden>
+              <label class="invest-form-label" for="invest-company-search">Choose companies</label>
+              <input type="text" id="invest-company-search" class="invest-form-input" placeholder="Search by symbol or name..." autocomplete="off">
+              <div id="invest-company-search-results" class="invest-company-search-results" aria-live="polite" hidden></div>
+              <div id="invest-selected-companies" class="invest-selected-companies"></div>
             </div>
           </div>
           <p id="invest-form-error" class="invest-form-error" aria-live="assertive" hidden></p>
@@ -256,7 +285,7 @@
                 <button type="button" class="personalize-refill-btn" id="personalize-refill-btn">Update my info</button>
                 <button type="button" class="personalize-clear-btn" id="personalize-clear-btn">Clear info</button>
               </div>
-              <p class="personalize-module-explanation">This module pretends you had a time machine and a crystal ball. We take your money and plop it into the S&amp;P 500 companies that *later* turned out to be the biggest winners—or the biggest losers. Swipe right to see both scenarios. It’s hindsight in reverse, it’s silly, and it might just teach you something about how wild markets can be. (Not financial advice. We’re not saying you could’ve actually done this.)</p>
+              <p class="personalize-module-explanation">This module pretends you had a time machine and a crystal ball. We take your money and plop it into US stocks that *later* turned out to be the biggest winners—or the biggest losers. Swipe right to see both scenarios. It’s hindsight in reverse, it’s silly, and it might just teach you something about how wild markets can be. (Not financial advice. We’re not saying you could’ve actually done this.)</p>
             </div>
             <div class="personalize-slide personalize-slide-best" data-slide="1">
               <h2 class="personalize-slide-title">Best case</h2>

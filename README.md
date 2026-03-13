@@ -1,17 +1,7 @@
-# The Chartwatchers
+# prototype_v2
 
-CSC316 Final Project Prototype V1
+How to run:
 
-## Running locally
+1. Download Node.js, then run `npx serve`. Open http://localhost:3000 in your browser.
 
-Data is loaded via `fetch`, so you need a local server (no `file://`):
-
-```bash
-npx serve
-# or: python -m http.server 8000
-```
-
-Then open `http://localhost:3000` (or 8000).
-
-All the Data is in the Data folder.
-We use loosely coupled modular design for webpage and visualization.
+2. Or install the Live Server extension in VS Code, open index.html, then click "Go Live" / Run with Live Server.

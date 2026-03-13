@@ -41,7 +41,7 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
   );
 
   const width = Math.max(500, container.clientWidth || 600);
-  const height = Math.min(680, Math.max(520, width * 0.45));
+  const height = Math.min(760, Math.max(580, width * 0.48));
 
   const root = d3.hierarchy({ children: available }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
@@ -129,7 +129,7 @@ export function renderCryptoBubbles(container, { cryptoList, onSelect }) {
   }));
 
   const width = Math.max(500, container.clientWidth || 600);
-  const height = Math.min(580, Math.max(460, width * 0.42));
+  const height = Math.min(640, Math.max(520, width * 0.46));
 
   const root = d3.hierarchy({ children: items }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
