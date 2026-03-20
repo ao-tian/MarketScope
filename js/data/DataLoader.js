@@ -1,8 +1,17 @@
 const DATA_BASE = 'data';
 
+/** CSP-safe CSV loader: uses d3.text + csvParseRows instead of d3.csv (which uses unsafe-eval) */
+async function loadCsvCspSafe(url) {
+  const text = await d3.text(url);
+  const rows = d3.csvParseRows(text);
+  if (!rows.length) return [];
+  const headers = rows[0];
+  return rows.slice(1).map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i] ?? ''])));
+}
+
 export async function loadCsv(path) {
   const url = `${DATA_BASE}/${path}`;
-  return d3.csv(url);
+  return loadCsvCspSafe(url);
 }
 
 export async function loadCsvs(map) {

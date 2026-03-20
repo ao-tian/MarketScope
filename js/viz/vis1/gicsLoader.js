@@ -11,16 +11,16 @@ const SECTOR_MAP = {
   'Financial Services': 'Financials',
 };
 
+/** CSP-safe CSV load: uses csvParseRows instead of csv/csvParse (which require unsafe-eval) */
 export async function loadGicsMap() {
   const url = 'data/GICS/gics-map-2018.csv';
   const d3 = window.d3;
-  if (d3?.csv) {
-    return d3.csv(url);
-  }
-  const res = await fetch(url);
-  const text = await res.text();
-  if (d3?.csvParse) return d3.csvParse(text);
-  return [];
+  if (!d3?.text || !d3?.csvParseRows) return [];
+  const text = await d3.text(url);
+  const rows = d3.csvParseRows(text);
+  if (!rows.length) return [];
+  const headers = rows[0];
+  return rows.slice(1).map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i] ?? ''])));
 }
 
 /**
