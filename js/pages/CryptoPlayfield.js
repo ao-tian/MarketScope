@@ -2,6 +2,7 @@ import * as DataLoader from '../data/DataLoader.js';
 import { getMetricHelpHtml } from '../utils/metricHelp.js';
 import { renderCryptoBubbles } from '../utils/bubbleChart.js';
 import { renderMAChart } from '../utils/maChart.js';
+import { renderPlayfieldPriceBrushChart } from '../utils/playfieldPriceBrushChart.js';
 
 function formatDateLabel(d) {
   if (!d || !(d instanceof Date)) return '—';
@@ -46,7 +47,14 @@ export function initCryptoPlayfield(container, { cryptoList }) {
 
   let previousDateRange = null;
 
+  function pushMarketsUrl(symbol) {
+    window.dispatchEvent(
+      new CustomEvent('marketscope:syncMarketsUrl', { detail: { tab: 'crypto', symbol } })
+    );
+  }
+
   function goBackToMain() {
+    pushMarketsUrl(null);
     currentSymbol = null;
     currentData = null;
     dataStart = null;
@@ -117,12 +125,13 @@ export function initCryptoPlayfield(container, { cryptoList }) {
     });
   }
 
-  function selectCrypto(sym) {
+  function selectCrypto(sym, opts = {}) {
     currentSymbol = sym;
     searchInput.value = sym;
     resultsEl.classList.remove('playfield-search-results-visible');
     stockPanel.classList.remove('playfield-stock-panel-empty');
     loadAndRenderCrypto(sym);
+    if (opts.syncUrl !== false) pushMarketsUrl(sym);
   }
 
   function updateDateInputs() {
@@ -276,8 +285,12 @@ export function initCryptoPlayfield(container, { cryptoList }) {
       tooltip?.setAttribute('aria-hidden', 'true');
       tooltip?.classList.remove('playfield-metric-tooltip-visible');
     });
+  }
 
-    renderMAChart(maChartWrap, ohlcv);
+  let financialEventsLoaded = null;
+  function getFinancialEventsCached() {
+    if (!financialEventsLoaded) financialEventsLoaded = DataLoader.loadFinancialEvents();
+    return financialEventsLoaded;
   }
 
   function getDataForDateRange(ohlcv, startDate, endDate) {
@@ -301,189 +314,155 @@ export function initCryptoPlayfield(container, { cryptoList }) {
       return;
     }
 
-    const margin = { top: 20, right: 60, bottom: 40, left: 60 };
-    const width = chartWrap.clientWidth - margin.left - margin.right;
-    const height = 440 - margin.top - margin.bottom;
+    const eventToast = document.getElementById('event-toast');
 
-    const x = d3.scaleTime().domain(d3.extent(data, (d) => d.date)).range([0, width]);
-    const y = d3.scaleLinear().domain(d3.extent(data, (d) => d.close)).nice().range([height, 0]);
+    renderPlayfieldPriceBrushChart(chartWrap, {
+      data,
+      formatPrice,
+      formatDateLabel,
+      maChartWrap,
+      renderMAChart,
+      decorateFocus: ({ g, xFocus, width, height }) => {
+        getFinancialEventsCached().then((events) => {
+          const domain = xFocus.domain();
+          const minT = domain[0].getTime();
+          const maxT = domain[1].getTime();
+          const inRange = events.filter((e) => {
+            const t = new Date(e.date).getTime();
+            return t >= minT && t <= maxT;
+          });
+          let hoverHideTimeout = null;
 
-    const svg = d3
-      .select(chartWrap)
-      .append('svg')
-      .attr('width', width + margin.left + margin.right)
-      .attr('height', height + margin.top + margin.bottom)
-      .style('display', 'block');
-
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g')
-      .attr('class', 'playfield-chart-grid')
-      .attr('transform', `translate(0,${height})`)
-      .call(d3.axisBottom(x).ticks(6).tickSize(-height));
-
-    g.append('g').attr('class', 'playfield-chart-grid').call(d3.axisLeft(y).ticks(5).tickSize(-width));
-
-    const lastClose = data[data.length - 1]?.close ?? 0;
-    const firstClose = data[0]?.close ?? lastClose;
-    const isUp = lastClose >= firstClose;
-
-    const line = d3
-      .line()
-      .x((d) => x(d.date))
-      .y((d) => y(d.close))
-      .curve(d3.curveMonotoneX);
-
-    g.append('path')
-      .datum(data)
-      .attr('class', `playfield-chart-line ${isUp ? 'positive' : 'negative'}`)
-      .attr('d', line);
-
-    g.append('circle')
-      .attr('cx', x(data[data.length - 1]?.date))
-      .attr('cy', y(lastClose))
-      .attr('r', 4)
-      .attr('class', `playfield-chart-dot ${isUp ? 'positive' : 'negative'}`);
-
-    const prevClose = data.length >= 2 ? data[data.length - 2]?.close : firstClose;
-    g.append('text')
-      .attr('x', width + 8)
-      .attr('y', y(prevClose))
-      .attr('class', 'playfield-chart-prev')
-      .text(`Previous close ${formatPrice(prevClose)}`);
-
-    DataLoader.loadFinancialEvents().then((events) => {
-      const domain = x.domain();
-      const minT = domain[0].getTime();
-      const maxT = domain[1].getTime();
-      const inRange = events.filter((e) => {
-        const t = new Date(e.date).getTime();
-        return t >= minT && t <= maxT;
-      });
-      const eventToast = document.getElementById('event-toast');
-      let hoverHideTimeout = null;
-
-      function showEventToast(d, hideOnLeave = false, anchorEl = null) {
-        if (!eventToast) return;
-        const dateStr = formatDateLabel(new Date(d.date));
-        eventToast.innerHTML = `
+          function showEventToast(d, hideOnLeave = false, anchorEl = null) {
+            if (!eventToast) return;
+            const dateStr = formatDateLabel(new Date(d.date));
+            eventToast.innerHTML = `
           <button type="button" class="event-toast-close" aria-label="Close">×</button>
           <div class="event-toast-category">${d.category}</div>
           <div class="event-toast-title">${d.title}</div>
           <div class="event-toast-date">${dateStr}</div>
           <div class="event-toast-desc">${d.description}</div>
         `;
-        if (anchorEl) {
-          const rect = anchorEl.getBoundingClientRect();
-          const gap = 28;
-          const pad = 12;
-          const estW = 460;
-          const estH = 220;
-          let left = rect.left + (rect.width / 2) - (estW / 2);
-          let top = rect.top - estH - gap;
-          if (left < pad) left = pad;
-          if (left + estW > window.innerWidth - pad) left = window.innerWidth - estW - pad;
-          if (top < pad) top = rect.bottom + gap;
-          eventToast.style.left = `${left}px`;
-          eventToast.style.top = `${top}px`;
-        } else {
-          eventToast.style.left = '';
-          eventToast.style.top = '';
-        }
-        eventToast.classList.add('event-toast-visible');
-        eventToast.setAttribute('aria-hidden', 'false');
-        eventToast.querySelector('.event-toast-close')?.addEventListener('click', () => {
-          eventToast.classList.remove('event-toast-visible');
-          eventToast.setAttribute('aria-hidden', 'true');
-          eventToast.innerHTML = '';
-        });
-        if (hideOnLeave) {
-          eventToast.addEventListener('mouseenter', function cancelHoverHide() {
-            if (hoverHideTimeout) {
-              clearTimeout(hoverHideTimeout);
-              hoverHideTimeout = null;
-            }
-          }, { once: true });
-          eventToast.addEventListener('mouseleave', function onToastLeave() {
-            eventToast.classList.remove('event-toast-visible');
-            eventToast.setAttribute('aria-hidden', 'true');
-            eventToast.innerHTML = '';
-          }, { once: true });
-        }
-      }
-
-      inRange.forEach((evt) => {
-        const evtDate = new Date(evt.date);
-        const cx = x(evtDate);
-        if (cx >= 0 && cx <= width) {
-          g.append('line')
-            .attr('class', 'playfield-chart-event-line')
-            .attr('x1', cx)
-            .attr('y1', 10)
-            .attr('x2', cx)
-            .attr('y2', height);
-          const circle = g
-            .append('circle')
-            .attr('class', 'playfield-chart-event-bubble')
-            .attr('cx', cx)
-            .attr('cy', 10)
-            .attr('r', 6)
-            .attr('data-event', JSON.stringify(evt))
-            .style('pointer-events', 'all');
-          circle.on('mouseover', (e) => {
-            e.stopPropagation();
-            if (hoverHideTimeout) {
-              clearTimeout(hoverHideTimeout);
-              hoverHideTimeout = null;
-            }
-            const d = JSON.parse(circle.attr('data-event'));
-            showEventToast(d, true, e.target);
-          });
-          circle.on('mouseout', () => {
-            hoverHideTimeout = setTimeout(() => {
-              if (eventToast) {
-                eventToast.classList.remove('event-toast-visible');
-                eventToast.setAttribute('aria-hidden', 'true');
-                eventToast.innerHTML = '';
-              }
-              hoverHideTimeout = null;
-            }, 150);
-          });
-          circle.on('click', (e) => {
-            e.stopPropagation();
-            if (!eventToast || !currentData || !dataStart || !dataEnd) return;
-            const d = JSON.parse(circle.attr('data-event'));
-            const dateStr = formatDateLabel(new Date(d.date));
-            const evtDate = new Date(d.date);
-
-            previousDateRange = {
-              start: dateStartInput.value,
-              end: dateEndInput.value,
-            };
-
-            const padMs = 90 * 24 * 60 * 60 * 1000;
-            let zoomStart = new Date(evtDate.getTime() - padMs);
-            let zoomEnd = new Date(evtDate.getTime() + padMs);
-            if (zoomStart < dataStart) zoomStart = dataStart;
-            if (zoomEnd > dataEnd) zoomEnd = dataEnd;
-
-            dateStartInput.value = toDateInputValue(zoomStart);
-            dateEndInput.value = toDateInputValue(zoomEnd);
-            chartWrap.innerHTML = '';
-            const filtered = getDataForDateRange(currentData, dateStartInput.value, dateEndInput.value);
-            if (filtered.length) {
-              renderCryptoDetail(currentSymbol, filtered, currentData);
-              renderChart(currentData);
+            if (anchorEl) {
+              const rect = anchorEl.getBoundingClientRect();
+              const gap = 28;
+              const pad = 12;
+              const estW = 460;
+              const estH = 220;
+              let left = rect.left + rect.width / 2 - estW / 2;
+              let top = rect.top - estH - gap;
+              if (left < pad) left = pad;
+              if (left + estW > window.innerWidth - pad) left = window.innerWidth - estW - pad;
+              if (top < pad) top = rect.bottom + gap;
+              eventToast.style.left = `${left}px`;
+              eventToast.style.top = `${top}px`;
             } else {
-              renderChart(currentData);
+              eventToast.style.left = '';
+              eventToast.style.top = '';
             }
-            goBackBtn?.removeAttribute('hidden');
-            tutorialEl?.classList.add('playfield-chart-tutorial-hidden');
+            eventToast.classList.add('event-toast-visible');
+            eventToast.setAttribute('aria-hidden', 'false');
+            eventToast.querySelector('.event-toast-close')?.addEventListener('click', () => {
+              eventToast.classList.remove('event-toast-visible');
+              eventToast.setAttribute('aria-hidden', 'true');
+              eventToast.innerHTML = '';
+            });
+            if (hideOnLeave) {
+              eventToast.addEventListener(
+                'mouseenter',
+                function cancelHoverHide() {
+                  if (hoverHideTimeout) {
+                    clearTimeout(hoverHideTimeout);
+                    hoverHideTimeout = null;
+                  }
+                },
+                { once: true }
+              );
+              eventToast.addEventListener(
+                'mouseleave',
+                function onToastLeave() {
+                  eventToast.classList.remove('event-toast-visible');
+                  eventToast.setAttribute('aria-hidden', 'true');
+                  eventToast.innerHTML = '';
+                },
+                { once: true }
+              );
+            }
+          }
 
-            showEventToast(d, false);
+          inRange.forEach((evt) => {
+            const evtDate = new Date(evt.date);
+            const cx = xFocus(evtDate);
+            if (cx >= 0 && cx <= width) {
+              g.append('line')
+                .attr('class', 'playfield-chart-event-line')
+                .attr('x1', cx)
+                .attr('y1', 10)
+                .attr('x2', cx)
+                .attr('y2', height);
+              const circle = g
+                .append('circle')
+                .attr('class', 'playfield-chart-event-bubble')
+                .attr('cx', cx)
+                .attr('cy', 10)
+                .attr('r', 6)
+                .attr('data-event', JSON.stringify(evt))
+                .style('pointer-events', 'all');
+              circle.on('mouseover', (e) => {
+                e.stopPropagation();
+                if (hoverHideTimeout) {
+                  clearTimeout(hoverHideTimeout);
+                  hoverHideTimeout = null;
+                }
+                const d = JSON.parse(circle.attr('data-event'));
+                showEventToast(d, true, e.target);
+              });
+              circle.on('mouseout', () => {
+                hoverHideTimeout = setTimeout(() => {
+                  if (eventToast) {
+                    eventToast.classList.remove('event-toast-visible');
+                    eventToast.setAttribute('aria-hidden', 'true');
+                    eventToast.innerHTML = '';
+                  }
+                  hoverHideTimeout = null;
+                }, 150);
+              });
+              circle.on('click', (e) => {
+                e.stopPropagation();
+                if (!eventToast || !currentData || !dataStart || !dataEnd) return;
+                const d = JSON.parse(circle.attr('data-event'));
+                const evtDate = new Date(d.date);
+
+                previousDateRange = {
+                  start: dateStartInput.value,
+                  end: dateEndInput.value,
+                };
+
+                const padMs = 90 * 24 * 60 * 60 * 1000;
+                let zoomStart = new Date(evtDate.getTime() - padMs);
+                let zoomEnd = new Date(evtDate.getTime() + padMs);
+                if (zoomStart < dataStart) zoomStart = dataStart;
+                if (zoomEnd > dataEnd) zoomEnd = dataEnd;
+
+                dateStartInput.value = toDateInputValue(zoomStart);
+                dateEndInput.value = toDateInputValue(zoomEnd);
+                chartWrap.innerHTML = '';
+                const filtered = getDataForDateRange(currentData, dateStartInput.value, dateEndInput.value);
+                if (filtered.length) {
+                  renderCryptoDetail(currentSymbol, filtered, currentData);
+                  renderChart(currentData);
+                } else {
+                  renderChart(currentData);
+                }
+                goBackBtn?.removeAttribute('hidden');
+                tutorialEl?.classList.add('playfield-chart-tutorial-hidden');
+
+                showEventToast(d, false);
+              });
+            }
           });
-        }
-      });
+        });
+      },
     });
   }
 
@@ -555,7 +534,7 @@ export function initCryptoPlayfield(container, { cryptoList }) {
   headerEl.innerHTML = '<p class="playfield-prompt">Search for a cryptocurrency above, or click a bubble below</p>';
   renderEmptyState();
 
-  return { resetToMain: goBackToMain };
+  return { resetToMain: goBackToMain, selectCrypto };
 
   function renderTrendingCrypto() {
     if (!trendingEl || !cryptoList?.length) return;

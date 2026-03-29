@@ -120,6 +120,7 @@ export class StockMapChart extends BaseViz {
         { year: 2000, label: 'Internet age' },
         { year: 2010, label: 'Modern giants' },
       ].filter((m) => m.year >= minY && m.year <= maxY);
+      this._timeScrubberMilestoneYears = milestones.map((x) => x.year);
       milestones.forEach((m) => {
         const pct = maxY > minY ? ((m.year - minY) / (maxY - minY)) * 100 : 0;
         const marker = document.createElement('div');
@@ -965,17 +966,44 @@ export class StockMapChart extends BaseViz {
 
     const minYear = this._years[0];
     const maxYear = this._years[this._years.length - 1];
-    const duration = 24000;
+    /** 6s full loop = 2× faster than the prior 12s uniform sweep; milestones still slow the scrub. */
+    const duration = 6000;
     const startTime = performance.now();
     const range = maxYear - minYear;
+
+    const milestoneYears = this._timeScrubberMilestoneYears || [];
+    const eventRadius = 2;
+    const fastStep = 1;
+    const slowStep = 7;
+    const n = Math.max(0, range);
+    const cumul = new Array(n + 1);
+    cumul[0] = 0;
+    for (let j = 0; j < n; j++) {
+      const y = minYear + j;
+      const nearEvent = milestoneYears.some(
+        (my) => Math.abs(y - my) <= eventRadius || Math.abs(y + 1 - my) <= eventRadius
+      );
+      cumul[j + 1] = cumul[j] + (nearEvent ? slowStep : fastStep);
+    }
+    const totalWeight = cumul[n] || 1;
+    const yearFloatAt = (uniformProgress) => {
+      const t = Math.min(1, Math.max(0, uniformProgress)) * totalWeight;
+      let j = 0;
+      while (j < n && cumul[j + 1] < t) j += 1;
+      if (j >= n) return maxYear;
+      const denom = cumul[j + 1] - cumul[j];
+      const frac = denom > 0 ? (t - cumul[j]) / denom : 0;
+      return minYear + j + frac;
+    };
 
     this._setReplayButtonPlaying();
     this._sidePanel?.classList.add('state-side-panel-bar-moving');
     const tick = () => {
       const elapsed = (performance.now() - startTime) % duration;
-      const progress = Math.min(1, elapsed / duration);
-      const year = range > 0 ? Math.round(minYear + progress * range) : minYear;
-      const clampedYear = Math.min(maxYear, Math.max(minYear, year));
+      const uniformProgress = Math.min(1, elapsed / duration);
+      const yearFloat = range > 0 ? yearFloatAt(uniformProgress) : minYear;
+      const clampedYear = Math.min(maxYear, Math.max(minYear, Math.round(yearFloat)));
+      const barProgress = range > 0 ? (yearFloat - minYear) / range : 1;
 
       if (clampedYear !== this._selectedYear) {
         this._selectedYear = clampedYear;
@@ -984,7 +1012,7 @@ export class StockMapChart extends BaseViz {
         requestAnimationFrame(() => this._drawMap());
       }
 
-      progressEl.style.transform = `scale3d(${progress}, 1, 1)`;
+      progressEl.style.transform = `scale3d(${Math.max(0, Math.min(1, barProgress))}, 1, 1)`;
 
       this._yearAutoAdvanceRAF = requestAnimationFrame(tick);
     };

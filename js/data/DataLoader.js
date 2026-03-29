@@ -1,4 +1,5 @@
-const DATA_BASE = 'data';
+/** Root-absolute so fetches work when the page URL is e.g. /stock/AAPL (not /stock/data/…). */
+const DATA_BASE = '/data';
 
 /** CSP-safe CSV loader: uses d3.text + csvParseRows instead of d3.csv (which uses unsafe-eval) */
 async function loadCsvCspSafe(url) {

@@ -13,7 +13,7 @@ const SECTOR_MAP = {
 
 /** CSP-safe CSV load: uses csvParseRows instead of csv/csvParse (which require unsafe-eval) */
 export async function loadGicsMap() {
-  const url = 'data/GICS/gics-map-2018.csv';
+  const url = '/data/GICS/gics-map-2018.csv';
   const d3 = window.d3;
   if (!d3?.text || !d3?.csvParseRows) return [];
   const text = await d3.text(url);

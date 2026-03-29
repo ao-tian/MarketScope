@@ -196,6 +196,24 @@ function showSectorPopup(sector, totalCap, scrollTarget) {
   });
 }
 
+function escLegendHtml(t) {
+  return String(t ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderGicsSectorLegend(listEl, mergedTree) {
+  if (!listEl || !mergedTree?.length) return;
+  const sorted = [...mergedTree].sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+  listEl.innerHTML = sorted
+    .map((s) => {
+      const color = GICS_SECTOR_COLORS[s.name] || GICS_SECTOR_COLORS.default;
+      return `<li class="explainer-gics-legend-item"><span class="explainer-gics-legend-swatch" style="background:${color}" aria-hidden="true"></span><span class="explainer-gics-legend-label">${escLegendHtml(s.name)}</span></li>`;
+    })
+    .join('');
+}
+
 function aggregateBySector(companies) {
   if (!companies?.length) return [];
   const bySector = {};
@@ -207,6 +225,443 @@ function aggregateBySector(companies) {
     bySector[sector].count += 1;
   }
   return Object.values(bySector).sort((a, b) => b.marketCap - a.marketCap);
+}
+
+/** Hover / focus hints for the NVDA decoder-ring panel (keys match data-hint-key). */
+const NVDA_FIELD_HINTS = {
+  ticker: {
+    title: 'Ticker symbol',
+    desc: 'The short trading “code” (here NVDA) that brokers, charts, and news use to identify one stock. It is unique on a given exchange.',
+  },
+  name: {
+    title: 'Company name',
+    desc: 'The public company name you see on filings and in many apps next to the ticker. It is the legal operating name, not the ticker.',
+  },
+  exchange: {
+    title: 'Stock exchange',
+    desc: 'Where the stock trades (e.g. Nasdaq or NYSE). Different venues match buyers and sellers; the ticker + exchange tells the system exactly which security you mean.',
+  },
+  sector: {
+    title: 'Sector',
+    desc: 'A broad industry bucket (GICS sector). The S&P 500 is often split by sector so you can compare how big “Technology” is versus “Health Care,” and so on.',
+  },
+  industry: {
+    title: 'Industry',
+    desc: 'A narrower label under the sector—for example Semiconductors within Technology. It is more specific than sector but still a grouped category.',
+  },
+  price: {
+    title: 'Share price',
+    desc: 'The stock’s price in this dataset snapshot. It changes with trading; it is not a “score” for the company, just what one share last traded near in this data.',
+  },
+  mktcap: {
+    title: 'Market capitalization',
+    desc: 'Roughly share price × number of shares: the total dollar value the market puts on all outstanding stock. Used as a quick sense of company size in public markets.',
+  },
+  hq: {
+    title: 'Headquarters',
+    desc: 'Main corporate location from filings. It is context about the company, not where you need to live to buy the stock.',
+  },
+  employees: {
+    title: 'Employees',
+    desc: 'Reported headcount (approximate) from company data. It hints at scale of operations; it does not by itself say if the stock is a good investment.',
+  },
+  summary: {
+    title: 'Business summary',
+    desc: 'Plain-language description of what the company does, shortened here for space. Longer versions appear in annual reports and data providers.',
+  },
+  panel: {
+    title: 'Why this mini card?',
+    desc: 'Real listings repeat these same building blocks: ticker, name, venue, sector/industry, price, market cap, context, and a price history. Hover each dotted label to learn the field; hover the chart for day-by-day closes.',
+  },
+  chart: {
+    title: 'Price trend (real history)',
+    desc: 'This line plots actual daily closing prices from this app’s dataset (one point per trading day). Time runs left to right; height is share price. Hover anywhere on the chart to see which calendar day and closing price that point represents—not investment advice, just how to read the shape.',
+  },
+};
+
+function escNvdaHtml(t) {
+  return String(t ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+function exchangeFriendly(code) {
+  const c = String(code || '').toUpperCase();
+  if (c === 'NMS' || c === 'NASDAQ') return 'Nasdaq';
+  if (c === 'NYQ' || c === 'NYSE') return 'NYSE';
+  if (!c) return '—';
+  return c;
+}
+
+function buildNvdaSamplePanelHtml(companies) {
+  const row = (Array.isArray(companies) ? companies : []).find((c) => (c.Symbol || '').toUpperCase() === 'NVDA');
+  const sym = row?.Symbol ? String(row.Symbol).toUpperCase() : 'NVDA';
+  const longname = row?.Longname || row?.Shortname || 'NVIDIA Corporation';
+  const exCode = row?.Exchange || 'NMS';
+  const exLabel = exchangeFriendly(exCode);
+  const sector = row?.Sector || 'Technology';
+  const industry = row?.Industry || 'Semiconductors';
+  const priceRaw = row?.Currentprice != null ? parseFloat(row.Currentprice) : 134.7;
+  const priceStr = Number.isFinite(priceRaw) ? priceRaw.toFixed(2) : '—';
+  const capNum = row?.Marketcap != null ? parseFloat(row.Marketcap) : 3.3e12;
+  const capStr = Number.isFinite(capNum) ? `$${formatCap(capNum)}` : '—';
+  const city = row?.City || 'Santa Clara';
+  const state = row?.State || 'CA';
+  const empRaw = row?.Fulltimeemployees != null ? parseInt(String(row.Fulltimeemployees).replace(/,/g, ''), 10) : 29600;
+  const empStr = Number.isFinite(empRaw) ? empRaw.toLocaleString() : '—';
+  let summary = row?.Longbusinesssummary || row?.Summary || '';
+  if (summary.length > 220) summary = `${summary.slice(0, 217).trim()}…`;
+
+  return `
+      <h3 class="viz-title explainer-section-title">Sample stock: NVIDIA (<span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="ticker">${escNvdaHtml(sym)}</span>)</h3>
+      <p class="viz-caption-desc explainer-section-desc explainer-nvda-intro">
+        <span class="explainer-nvda-hint explainer-nvda-hint--soft" tabindex="0" role="button" data-hint-key="panel"><strong>Hover or focus</strong> each <span class="explainer-nvda-dotted">dotted</span> label</span>, and <strong>hover the chart</strong> for day-by-day prices—same ingredients you will see elsewhere in Stock Basics.
+      </p>
+      <div class="explainer-nvda-card" aria-label="NVIDIA sample listing">
+        <div class="explainer-nvda-tooltip" aria-hidden="true">
+          <strong class="explainer-nvda-tooltip-title"></strong>
+          <p class="explainer-nvda-tooltip-desc"></p>
+        </div>
+        <div class="explainer-nvda-row explainer-nvda-row--hero">
+          <span class="explainer-nvda-hint explainer-nvda-ticker" tabindex="0" role="button" data-hint-key="ticker">${escNvdaHtml(sym)}</span>
+          <span class="explainer-nvda-sep" aria-hidden="true">·</span>
+          <span class="explainer-nvda-hint explainer-nvda-co-name" tabindex="0" role="button" data-hint-key="name">${escNvdaHtml(longname)}</span>
+        </div>
+        <div class="explainer-nvda-row explainer-nvda-row--meta">
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="exchange"><span class="explainer-nvda-meta-label">Exchange</span> ${escNvdaHtml(exLabel)} <span class="explainer-nvda-paren">(${escNvdaHtml(exCode)})</span></span>
+          <span class="explainer-nvda-dot" aria-hidden="true">·</span>
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="sector"><span class="explainer-nvda-meta-label">Sector</span> ${escNvdaHtml(sector)}</span>
+          <span class="explainer-nvda-dot" aria-hidden="true">·</span>
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="industry"><span class="explainer-nvda-meta-label">Industry</span> ${escNvdaHtml(industry)}</span>
+        </div>
+        <div class="explainer-nvda-row explainer-nvda-row--nums">
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="price"><span class="explainer-nvda-meta-label">Price</span> $${escNvdaHtml(priceStr)}</span>
+          <span class="explainer-nvda-dot" aria-hidden="true">·</span>
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="mktcap"><span class="explainer-nvda-meta-label">Mkt cap</span> ${escNvdaHtml(capStr)}</span>
+        </div>
+        <div class="explainer-nvda-row explainer-nvda-row--hq">
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="hq"><span class="explainer-nvda-meta-label">HQ</span> ${escNvdaHtml(city)}, ${escNvdaHtml(state)}</span>
+          <span class="explainer-nvda-dot" aria-hidden="true">·</span>
+          <span class="explainer-nvda-hint" tabindex="0" role="button" data-hint-key="employees"><span class="explainer-nvda-meta-label">Employees</span> ${escNvdaHtml(empStr)}</span>
+        </div>
+        <div class="explainer-nvda-chart-wrap explainer-nvda-chart-wrap--loading" aria-busy="true">
+          <div class="explainer-nvda-chart-head">
+            <span class="explainer-nvda-hint explainer-nvda-chart-title-hint" tabindex="0" role="button" data-hint-key="chart">Price trend · NVDA</span>
+            <span class="explainer-nvda-chart-range" aria-live="polite"></span>
+          </div>
+          <p class="explainer-nvda-chart-status">Loading price history…</p>
+          <div class="explainer-nvda-chart-inner" hidden>
+            <svg class="explainer-nvda-chart-svg" role="img" aria-hidden="true"></svg>
+            <div class="explainer-nvda-chart-scrub" aria-hidden="true"></div>
+          </div>
+          <p class="explainer-nvda-chart-fallback" hidden></p>
+        </div>
+        <p class="explainer-nvda-summary"><span class="explainer-nvda-hint explainer-nvda-summary-inner" tabindex="0" role="button" data-hint-key="summary">${escNvdaHtml(summary || 'NVIDIA designs GPUs and data-center platforms used in gaming, AI, and visualization.')}</span></p>
+      </div>
+    `;
+}
+
+function bisectNvdaDate(arr, xVal) {
+  if (!arr.length) return 0;
+  let lo = 0;
+  let hi = arr.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid].date < xVal) lo = mid;
+    else hi = mid;
+  }
+  return xVal - arr[lo].date > arr[hi].date - xVal ? hi : lo;
+}
+
+function formatNvdaChartDate(d) {
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatNvdaChartYTick(v) {
+  if (!Number.isFinite(v)) return '';
+  if (v >= 1000) return `$${Math.round(v / 100) / 10}k`;
+  if (v >= 100) return `$${Math.round(v)}`;
+  if (v >= 10) return `$${v.toFixed(1)}`;
+  return `$${v.toFixed(2)}`;
+}
+
+/**
+ * Renders ~10 years of NVDA daily closes; hover overlay shows date + close.
+ * @returns {boolean} true if a chart was drawn
+ */
+function renderNvdaTrendChart(cardRoot, ohlcv) {
+  const chartWrap = cardRoot.querySelector('.explainer-nvda-chart-wrap');
+  const statusEl = cardRoot.querySelector('.explainer-nvda-chart-status');
+  const inner = cardRoot.querySelector('.explainer-nvda-chart-inner');
+  const svgEl = cardRoot.querySelector('.explainer-nvda-chart-svg');
+  const scrubEl = cardRoot.querySelector('.explainer-nvda-chart-scrub');
+  const rangeEl = cardRoot.querySelector('.explainer-nvda-chart-range');
+  const fallbackEl = cardRoot.querySelector('.explainer-nvda-chart-fallback');
+
+  if (!chartWrap || !inner || !svgEl || !scrubEl) return false;
+
+  const fail = (msg) => {
+    if (statusEl) statusEl.hidden = true;
+    if (fallbackEl) {
+      fallbackEl.hidden = false;
+      fallbackEl.textContent = msg;
+    }
+    inner.hidden = true;
+    chartWrap.classList.remove('explainer-nvda-chart-wrap--loading');
+    chartWrap.setAttribute('aria-busy', 'false');
+    return false;
+  };
+
+  if (!Array.isArray(ohlcv) || ohlcv.length < 2) {
+    return fail('Could not load enough price history to draw a chart.');
+  }
+
+  const sorted = [...ohlcv]
+    .filter((d) => d.date instanceof Date && !Number.isNaN(d.date) && Number.isFinite(d.close))
+    .sort((a, b) => a.date - b.date);
+  if (sorted.length < 2) {
+    return fail('Could not load enough price history to draw a chart.');
+  }
+
+  const endDate = sorted[sorted.length - 1].date;
+  const startCut = new Date(endDate);
+  startCut.setFullYear(startCut.getFullYear() - 10);
+  const series = sorted.filter((d) => d.date >= startCut);
+  const use = series.length >= 2 ? series : sorted;
+
+  const W = 760;
+  const H = 210;
+  const m = { t: 14, r: 18, b: 30, l: 62 };
+  const iw = W - m.l - m.r;
+  const ih = H - m.t - m.b;
+
+  if (statusEl) statusEl.hidden = true;
+  inner.hidden = false;
+  chartWrap.classList.remove('explainer-nvda-chart-wrap--loading');
+  chartWrap.setAttribute('aria-busy', 'false');
+  if (fallbackEl) fallbackEl.hidden = true;
+
+  svgEl.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  svgEl.removeAttribute('aria-hidden');
+  svgEl.setAttribute(
+    'aria-label',
+    `NVDA closing prices from ${formatNvdaChartDate(use[0].date)} to ${formatNvdaChartDate(use[use.length - 1].date)}. Hover for a specific day.`
+  );
+
+  const x = d3.scaleTime().domain(d3.extent(use, (d) => d.date)).range([m.l, m.l + iw]);
+  const [yMin, yMax] = d3.extent(use, (d) => d.close);
+  const pad = Math.max((yMax - yMin) * 0.08, 0.01);
+  const y = d3.scaleLinear().domain([yMin - pad, yMax + pad]).nice().range([m.t + ih, m.t]);
+
+  const svg = d3.select(svgEl);
+  svg.selectAll('*').remove();
+
+  svg
+    .append('rect')
+    .attr('class', 'explainer-nvda-chart-plot-bg')
+    .attr('x', m.l)
+    .attr('y', m.t)
+    .attr('width', iw)
+    .attr('height', ih)
+    .attr('rx', 10);
+
+  const lineGen = d3
+    .line()
+    .defined((d) => Number.isFinite(d.close))
+    .x((d) => x(d.date))
+    .y((d) => y(d.close))
+    .curve(d3.curveMonotoneX);
+
+  svg
+    .append('path')
+    .datum(use)
+    .attr('class', 'explainer-nvda-chart-line')
+    .attr('fill', 'none')
+    .attr('stroke-linejoin', 'round')
+    .attr('stroke-linecap', 'round')
+    .attr('d', lineGen);
+
+  const yTickVals = y.ticks(4);
+  const axG = svg.append('g').attr('class', 'explainer-nvda-chart-y-axis');
+  yTickVals.forEach((tv) => {
+    axG
+      .append('text')
+      .attr('class', 'explainer-nvda-chart-tick explainer-nvda-chart-tick--y')
+      .attr('x', m.l - 12)
+      .attr('y', y(tv))
+      .attr('text-anchor', 'end')
+      .attr('dominant-baseline', 'middle')
+      .text(formatNvdaChartYTick(tv));
+  });
+
+  const mid = use[Math.floor(use.length / 2)];
+  const xTicks = [use[0].date, mid.date, use[use.length - 1].date];
+  const xAx = svg.append('g').attr('class', 'explainer-nvda-chart-x-axis');
+  xTicks.forEach((dt, i) => {
+    xAx
+      .append('text')
+      .attr('class', 'explainer-nvda-chart-tick explainer-nvda-chart-tick--x')
+      .attr('x', x(dt))
+      .attr('y', H - 10)
+      .attr('text-anchor', i === 0 ? 'start' : i === 2 ? 'end' : 'middle')
+      .text(String(dt.getFullYear()));
+  });
+
+  const focus = svg.append('g').attr('class', 'explainer-nvda-chart-focus').style('display', 'none');
+  focus
+    .append('line')
+    .attr('class', 'explainer-nvda-chart-cross-v')
+    .attr('y1', m.t)
+    .attr('y2', m.t + ih);
+  focus.append('circle').attr('class', 'explainer-nvda-chart-focus-dot').attr('r', 5);
+
+  const overlay = svg
+    .append('rect')
+    .attr('class', 'explainer-nvda-chart-overlay')
+    .attr('x', m.l)
+    .attr('y', m.t)
+    .attr('width', iw)
+    .attr('height', ih)
+    .attr('fill', 'transparent')
+    .style('cursor', 'crosshair');
+
+  function showScrub(event) {
+    const [mx, my] = d3.pointer(event, svgEl);
+    if (mx < m.l || mx > m.l + iw || my < m.t || my > m.t + ih) {
+      focus.style('display', 'none');
+      scrubEl.classList.remove('explainer-nvda-chart-scrub-visible');
+      scrubEl.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    const x0 = x.invert(mx);
+    const i = bisectNvdaDate(use, x0);
+    const d = use[i];
+    if (!d) return;
+    const cx = x(d.date);
+    const cy = y(d.close);
+    focus.style('display', null);
+    focus.select('.explainer-nvda-chart-cross-v').attr('x1', cx).attr('x2', cx);
+    focus.select('.explainer-nvda-chart-focus-dot').attr('cx', cx).attr('cy', cy);
+
+    scrubEl.innerHTML = `<strong class="explainer-nvda-chart-scrub-date">${formatNvdaChartDate(d.date)}</strong><span class="explainer-nvda-chart-scrub-price">Close ${d.close.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })}</span>`;
+    scrubEl.classList.add('explainer-nvda-chart-scrub-visible');
+    scrubEl.setAttribute('aria-hidden', 'false');
+
+    const innerRect = inner.getBoundingClientRect();
+    const pad = 10;
+    let left = event.clientX - innerRect.left + pad;
+    let top = event.clientY - innerRect.top - 52;
+    const maxW = Math.min(280, innerRect.width - pad * 2);
+    if (left + maxW > innerRect.width - pad) left = innerRect.width - maxW - pad;
+    if (left < pad) left = pad;
+    if (top < pad) top = event.clientY - innerRect.top + pad;
+    scrubEl.style.left = `${left}px`;
+    scrubEl.style.top = `${top}px`;
+  }
+
+  function hideScrub() {
+    focus.style('display', 'none');
+    scrubEl.classList.remove('explainer-nvda-chart-scrub-visible');
+    scrubEl.setAttribute('aria-hidden', 'true');
+  }
+
+  overlay.on('mousemove', showScrub);
+  overlay.on('mouseleave', hideScrub);
+
+  if (rangeEl) {
+    rangeEl.textContent = `${use[0].date.getFullYear()}–${use[use.length - 1].date.getFullYear()} · hover for daily close`;
+  }
+
+  return true;
+}
+
+function attachNvdaSampleHints(cardRoot) {
+  const tooltip = cardRoot.querySelector('.explainer-nvda-tooltip');
+  const titleEl = cardRoot.querySelector('.explainer-nvda-tooltip-title');
+  const descEl = cardRoot.querySelector('.explainer-nvda-tooltip-desc');
+  const terms = cardRoot.querySelectorAll('.explainer-nvda-hint[data-hint-key]');
+  if (!tooltip || !titleEl || !descEl) return;
+
+  let hideTimer = null;
+
+  function placeNear(el, clientX, clientY) {
+    const pad = 10;
+    const cr = cardRoot.getBoundingClientRect();
+    let x = clientX - cr.left + 14;
+    let y = clientY - cr.top + 14;
+    if (!Number.isFinite(clientX)) {
+      const er = el.getBoundingClientRect();
+      x = er.left - cr.left + er.width / 2;
+      y = er.bottom - cr.top + 12;
+    }
+
+    function clampToCard() {
+      const tw = tooltip.offsetWidth;
+      const th = tooltip.offsetHeight;
+      let nx = x;
+      let ny = y;
+      if (!Number.isFinite(clientX)) {
+        nx -= tw / 2;
+      }
+      if (nx + tw > cardRoot.clientWidth - pad) nx = cardRoot.clientWidth - tw - pad;
+      if (ny + th > cardRoot.clientHeight - pad) ny = cardRoot.clientHeight - th - pad;
+      if (nx < pad) nx = pad;
+      if (ny < pad) ny = pad;
+      tooltip.style.left = `${nx}px`;
+      tooltip.style.top = `${ny}px`;
+    }
+
+    tooltip.style.left = `${Math.max(pad, x)}px`;
+    tooltip.style.top = `${Math.max(pad, y)}px`;
+    requestAnimationFrame(clampToCard);
+  }
+
+  function show(el, e) {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+    const key = el.getAttribute('data-hint-key');
+    const hint = key ? NVDA_FIELD_HINTS[key] : null;
+    if (!hint) return;
+    titleEl.textContent = hint.title;
+    descEl.textContent = hint.desc;
+    tooltip.classList.add('explainer-nvda-tooltip-visible');
+    tooltip.setAttribute('aria-hidden', 'false');
+    const cx = e && typeof e.clientX === 'number' ? e.clientX : NaN;
+    const cy = e && typeof e.clientY === 'number' ? e.clientY : NaN;
+    placeNear(el, cx, cy);
+  }
+
+  function move(e) {
+    if (!tooltip.classList.contains('explainer-nvda-tooltip-visible')) return;
+    placeNear(e.currentTarget || cardRoot, e.clientX, e.clientY);
+  }
+
+  function hide() {
+    hideTimer = setTimeout(() => {
+      tooltip.classList.remove('explainer-nvda-tooltip-visible');
+      tooltip.setAttribute('aria-hidden', 'true');
+    }, 80);
+  }
+
+  function cancelHide() {
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+
+  terms.forEach((el) => {
+    el.addEventListener('mouseenter', (e) => show(el, e));
+    el.addEventListener('mousemove', move);
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('focus', (e) => show(el, e));
+    el.addEventListener('blur', hide);
+  });
+
+  tooltip.addEventListener('mouseenter', cancelHide);
+  tooltip.addEventListener('mouseleave', hide);
 }
 
 export class StockExplainerViz extends BaseViz {
@@ -239,8 +694,8 @@ export class StockExplainerViz extends BaseViz {
     const legendEl = document.createElement('div');
     legendEl.className = 'stock-explainer-legend';
     legendEl.innerHTML = `
-      <span class="stock-explainer-legend-heading">S&P 500</span>
-      <span class="stock-explainer-legend-label">Sector breakdown by market cap</span>
+      <span class="stock-explainer-legend-heading">America's top public companies</span>
+      <span class="stock-explainer-legend-label">Often called “the S&amp;P 500”—about 500 of the largest U.S. stocks, shown by sector and size</span>
     `;
     header.appendChild(legendEl);
     root.appendChild(header);
@@ -273,6 +728,32 @@ export class StockExplainerViz extends BaseViz {
     `;
     wrap.appendChild(panel1);
 
+    const panelNvda = document.createElement('div');
+    panelNvda.className = 'explainer-panel explainer-nvda-sample';
+    panelNvda.innerHTML = buildNvdaSamplePanelHtml(Array.isArray(companies) ? companies : []);
+    wrap.appendChild(panelNvda);
+    const nvdaCard = panelNvda.querySelector('.explainer-nvda-card');
+    if (nvdaCard) attachNvdaSampleHints(nvdaCard);
+    (async () => {
+      if (!nvdaCard) return;
+      try {
+        const hist = await loadUSStock('NVDA');
+        renderNvdaTrendChart(nvdaCard, hist);
+      } catch (e) {
+        console.warn('NVDA explainer chart:', e);
+        const wrap = nvdaCard.querySelector('.explainer-nvda-chart-wrap');
+        const st = nvdaCard.querySelector('.explainer-nvda-chart-status');
+        const fb = nvdaCard.querySelector('.explainer-nvda-chart-fallback');
+        if (st) st.hidden = true;
+        if (fb) {
+          fb.hidden = false;
+          fb.textContent = 'Could not load price history. Try refreshing.';
+        }
+        wrap?.classList.remove('explainer-nvda-chart-wrap--loading');
+        wrap?.setAttribute('aria-busy', 'false');
+      }
+    })();
+
     // Panel 2: S&P 500 by sector — donut / horizontal bars
     const panel2 = document.createElement('div');
     panel2.className = 'explainer-panel explainer-sectors';
@@ -290,8 +771,8 @@ export class StockExplainerViz extends BaseViz {
       )
       .join('');
     panel2.innerHTML = `
-      <h3 class="viz-title explainer-section-title">The S&P 500: America's economy in slices</h3>
-      <p class="viz-caption-desc explainer-section-desc">These ${sectors.reduce((s, x) => s + x.count, 0)} companies are grouped into sectors. Technology is the biggest slice!</p>
+      <h3 class="viz-title explainer-section-title">America's top ~500 stocks, sliced by industry</h3>
+      <p class="viz-caption-desc explainer-section-desc">Analysts track a basket of about <strong>500 of the largest U.S. companies</strong> people can invest in (commonly called the “S&amp;P 500”). Here are those companies grouped by <strong>sector</strong>—technology is usually the biggest slice!—by total market value.</p>
       <div class="explainer-sector-list">${sectorList}</div>
     `;
     wrap.appendChild(panel2);
@@ -309,8 +790,8 @@ export class StockExplainerViz extends BaseViz {
       const yearEnd = parsed[parsed.length - 1].date.getFullYear();
 
       panel3Html = `
-        <h3 class="viz-title explainer-section-title">The ride: S&P 500 from ${yearStart} to ${yearEnd}</h3>
-        <p class="viz-caption-desc explainer-section-desc">Stocks don't go in a straight line. Here's the real S&P 500 index — up <strong>${pctChange}%</strong> over this period (with plenty of bumps along the way).</p>
+        <h3 class="viz-title explainer-section-title">The ride: that same basket of top U.S. stocks (${yearStart}–${yearEnd})</h3>
+        <p class="viz-caption-desc explainer-section-desc">Prices don't move in a straight line. This line tracks the combined value of those ~500 big U.S. stocks over time — overall it was up <strong>${pctChange}%</strong> in our data range (with plenty of bumps).</p>
         <div class="explainer-chart-wrap">
           <svg class="explainer-mini-chart" viewBox="0 0 400 120" preserveAspectRatio="none">
             <path class="explainer-line" d="" fill="none" stroke-width="3"/>
@@ -343,8 +824,15 @@ export class StockExplainerViz extends BaseViz {
           <p class="gics-help-popup-text">GICS (Global Industry Classification Standard) organizes companies into a tree: <strong>Sector → Industry Group → Industry → Sub-Industry</strong>. Use this to find S&P 500 companies by sector—click a sector to see which stocks are in it, then click a symbol to explore that company. Helps you compare investments in the same industry.</p>
         </div>
       </div>
-      <p class="viz-caption-desc explainer-section-desc">Proportions by market cap. Click a sector to see all companies—then click any symbol to explore that stock.</p>
-      <div class="explainer-gics-tree"></div>
+      <p class="viz-caption-desc explainer-section-desc">Ring sizes match each sector's share of market value. Click a sector to see companies—then click a ticker to explore that stock.</p>
+      <div class="explainer-gics-chart-legend-row">
+        <div class="explainer-gics-chart-col">
+          <div class="explainer-gics-tree" aria-label="GICS sectors chart"></div>
+        </div>
+        <aside class="explainer-gics-legend-col" aria-label="Sectors">
+          <ul class="explainer-gics-legend-list"></ul>
+        </aside>
+      </div>
     `;
     const gicsHelpBtn = panel4.querySelector('.gics-help-btn');
     const gicsHelpPopup = panel4.querySelector('.gics-help-popup');
@@ -368,7 +856,7 @@ export class StockExplainerViz extends BaseViz {
     panel5.className = 'explainer-panel explainer-tutorial';
     panel5.innerHTML = `
       <h3 class="viz-title explainer-section-title">Tutorial: How to Read a Stock</h3>
-      <p class="viz-caption-desc explainer-section-desc">Explore real price data: <strong>drag the brush</strong> below each chart to zoom into a time range, <strong>hover</strong> for prices, <strong>click</strong> any point to see "what if" return, <strong>click yellow markers</strong> for event details, and use <strong>?</strong> for metric help.</p>
+      <p class="viz-caption-desc explainer-section-desc"><strong>Time brush (gold bar under each chart):</strong> In data viz, a “brush” is a draggable window on a timeline. <strong>Drag the ends or the middle</strong> of that gold bar to pick a shorter date range—the big chart zooms to match so you can focus on one period. Click <strong>Reset zoom</strong> to see the full range again. <strong>Hover</strong> the main chart for prices; <strong>click</strong> for a simple “what if you bought then?” return; <strong>click gold dots along the top</strong> for event notes; use <strong>?</strong> next to metrics for definitions.</p>
       <div class="tutorial-charts-row">
         <div class="tutorial-chart-panel tutorial-chart-good">
           <h4 class="tutorial-chart-title">Strong stock: Apple (AAPL)</h4>
@@ -383,9 +871,7 @@ export class StockExplainerViz extends BaseViz {
       </div>
     `;
 
-    wrap.appendChild(panel5);
-
-    // Load stock data and render interactive charts
+    // Load stock data and render interactive charts (panel lives in #story-tutorial-anchor)
     (async () => {
       const goodContainer = panel5.querySelector('.tutorial-chart-good .tutorial-chart-container');
       const badContainer = panel5.querySelector('.tutorial-chart-bad .tutorial-chart-container');
@@ -440,6 +926,14 @@ export class StockExplainerViz extends BaseViz {
 
     root.appendChild(wrap);
 
+    const tutorialHost = document.getElementById('story-tutorial-anchor');
+    if (tutorialHost) {
+      tutorialHost.innerHTML = '';
+      tutorialHost.appendChild(panel5);
+    } else {
+      wrap.appendChild(panel5);
+    }
+
     // Load and render GICS concentric chart
     (async () => {
       try {
@@ -449,6 +943,8 @@ export class StockExplainerViz extends BaseViz {
         const mergedTree = mergeCompaniesIntoTree(gicsTree, companyData);
         const totalCap = mergedTree.reduce((s, x) => s + (x.marketCap || 0), 0);
         const treeEl = panel4.querySelector('.explainer-gics-tree');
+        const legendListEl = panel4.querySelector('.explainer-gics-legend-list');
+        renderGicsSectorLegend(legendListEl, mergedTree);
         renderGicsConcentricChart(treeEl, mergedTree, (sector) => {
           showSectorPopup(sector, totalCap, panel4);
         });
@@ -479,6 +975,7 @@ export class StockExplainerViz extends BaseViz {
   }
 
   unmount() {
+    document.getElementById('story-tutorial-anchor')?.replaceChildren();
     this.container?.querySelector('.stock-explainer-root')?.remove();
     super.unmount();
   }

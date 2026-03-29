@@ -1,5 +1,6 @@
 import * as DataLoader from './data/DataLoader.js';
 import { loadStrategies, resolveStrategyHoldings } from './data/strategyLoader.js';
+import { getStrategyCeoImageUrl, getStrategyCeoVisual } from './utils/strategyCeo.js';
 import { StockMapChart, StockExplainerViz } from './viz/vis1/index.js';
 import { initFloatingSymbols, initFloatingSymbolsInvest } from './layout/FloatingSymbols.js';
 import { initScrollAnimations } from './layout/ScrollAnimations.js';
@@ -14,7 +15,7 @@ const VIZ_REGISTRY = {
     enableCompanyClick: true,
     showSpikes: true,
     captionDescription:
-      "What is stock? Let's start by investigating how the S&P 500 — America's top 500 publicly traded companies — are distributed across the United States.",
+      "Next, explore where those big U.S. companies are headquartered: each state shows how many of them are based there.",
   },
   'viz-2': {
     vizClass: StockMapChart,
@@ -30,7 +31,7 @@ const VIZ_REGISTRY = {
     vizClass: StockExplainerViz,
     dataKeys: ['sp500Companies', 'sp500Index'],
     introText:
-      "A stock is simply a share of ownership in a company. When you buy a share, you own a small piece of that business and can benefit when the company grows. Below, we break down the basics: how stocks work, how the S&P 500 is split across sectors, and how prices move over time. Together with the maps above, this shows where and what these companies are—and why understanding them matters.",
+      "A stock is a share of ownership in a company—when you buy one, you own a small piece of that business. Below we start with the basics: what a stock is, how those big public companies group into sectors, and how a basket of top U.S. stocks moved over time. After that you can explore the industry map (GICS), state maps, and an interactive chart tutorial.",
   },
 };
 
@@ -89,6 +90,71 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+/** Pointer-driven 3D tilt on playfield conclusion card (respects reduced motion). */
+function initConclusionCardTilt() {
+  const card = document.querySelector('.personalize-conclusion-card');
+  if (!card || card.dataset.tiltBound === '1') return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  card.dataset.tiltBound = '1';
+  const maxTilt = 9;
+  const scale = 1.024;
+  const baseZ = 18;
+  const tiltClass = 'personalize-conclusion-card--tilt-active';
+
+  const baseShadow =
+    '0 0 0 1px rgba(255, 255, 255, 0.04) inset, 0 4px 32px rgba(0, 0, 0, 0.45), 0 0 80px rgba(212, 175, 55, 0.12)';
+
+  const applyTilt = (clientX, clientY) => {
+    const rect = card.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const px = Math.max(0, Math.min(1, x / rect.width));
+    const py = Math.max(0, Math.min(1, y / rect.height));
+    const tiltY = (px - 0.5) * 2 * maxTilt;
+    const tiltX = (0.5 - py) * 2 * maxTilt;
+    card.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateZ(${baseZ}px) scale3d(${scale}, ${scale}, ${scale})`;
+    card.style.setProperty('--tilt-sheen-x', `${px * 100}%`);
+    card.style.setProperty('--tilt-sheen-y', `${py * 100}%`);
+    const shadowLift = 10 + Math.abs(tiltX) * 0.6 + Math.abs(tiltY) * 0.5;
+    const goldGlow = 0.12 + (Math.abs(tiltX) + Math.abs(tiltY)) * 0.004;
+    card.style.boxShadow = `${baseShadow}, 0 ${shadowLift}px 48px rgba(0, 0, 0, 0.38), 0 0 96px rgba(212, 175, 55, ${goldGlow})`;
+    card.classList.add(tiltClass);
+  };
+
+  const resetTilt = () => {
+    card.style.transform = '';
+    card.style.boxShadow = '';
+    card.style.removeProperty('--tilt-sheen-x');
+    card.style.removeProperty('--tilt-sheen-y');
+    card.classList.remove(tiltClass);
+  };
+
+  card.addEventListener('mousemove', (e) => applyTilt(e.clientX, e.clientY));
+  card.addEventListener('mouseenter', (e) => applyTilt(e.clientX, e.clientY));
+  card.addEventListener('mouseleave', resetTilt);
+
+  card.addEventListener(
+    'touchstart',
+    (e) => {
+      const t = e.touches[0];
+      if (t) applyTilt(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+  card.addEventListener(
+    'touchmove',
+    (e) => {
+      const t = e.touches[0];
+      if (t) applyTilt(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+  card.addEventListener('touchend', resetTilt);
+  card.addEventListener('touchcancel', resetTilt);
+}
+
 async function loadData() {
   const keys = [...new Set(Object.values(VIZ_REGISTRY).flatMap((r) => r.dataKeys))];
   const loaders = {
@@ -141,16 +207,127 @@ function mountViz(containerId, data) {
   if (result && typeof result.then === 'function') result.catch((e) => console.error('Viz mount failed:', e));
 }
 
-function showRoute(route) {
+function cryptoNameSlug(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function resolveCryptoPathSegment(segment, cryptoList) {
+  if (segment == null || segment === '' || !cryptoList?.length) return null;
+  const raw = String(segment).trim();
+  const upper = raw.toUpperCase();
+  const bySym = cryptoList.find((c) => c.symbol?.toUpperCase() === upper);
+  if (bySym) return String(bySym.symbol).toUpperCase();
+  const slug = raw.toLowerCase();
+  const byName = cryptoList.find((c) => cryptoNameSlug(c.name) === slug);
+  if (byName) return String(byName.symbol).toUpperCase();
+  return upper;
+}
+
+function cryptoPathSegmentForSymbol(symbol, cryptoList) {
+  if (!symbol || !cryptoList?.length) return symbol ? String(symbol).toUpperCase() : '';
+  const up = String(symbol).toUpperCase();
+  const c = cryptoList.find((x) => x.symbol?.toUpperCase() === up);
+  if (c?.name) return cryptoNameSlug(c.name);
+  return up;
+}
+
+/** URL → raw route (crypto slug is resolved later via finalizeMarketsRoute + cryptoList). */
+function parsePath(pathname) {
+  let p = (pathname || '/').replace(/\/$/, '') || '/';
+  if (p === '/index.html') p = '/home';
+  if (p === '/' || p === '/home') return { page: 'home' };
+
+  const parts = p.split('/').filter(Boolean);
+  const head = parts[0];
+
+  if (head === 'playfield' || head === 'personalize') {
+    const playfieldResult = parts[1] === 'result';
+    return { page: 'playfield', playfieldResult };
+  }
+  if (head === 'stock' || head === 'stocks') {
+    const sym = parts[1] ? decodeURIComponent(parts[1]).toUpperCase() : null;
+    return { page: 'markets', tab: 'stocks', symbol: sym };
+  }
+  if (head === 'crypto') {
+    const seg = parts[1] != null && parts[1] !== '' ? decodeURIComponent(parts[1]) : null;
+    return { page: 'markets', tab: 'crypto', cryptoSegment: seg };
+  }
+  return { page: 'home' };
+}
+
+function rawMarketsStateFromParsed(parsed) {
+  if (parsed.page !== 'markets') {
+    if (parsed.page === 'playfield') {
+      return { page: 'playfield', playfieldResult: Boolean(parsed.playfieldResult) };
+    }
+    return { page: parsed.page };
+  }
+  if (parsed.tab === 'crypto') {
+    return {
+      page: 'markets',
+      tab: 'crypto',
+      ...(parsed.cryptoSegment ? { cryptoSegment: parsed.cryptoSegment } : {}),
+    };
+  }
+  return { page: 'markets', tab: 'stocks', symbol: parsed.symbol || null };
+}
+
+function finalizeMarketsRoute(state, cryptoList) {
+  if (state.page !== 'markets') return state;
+  const tab = state.tab || 'stocks';
+  if (tab === 'crypto' && state.cryptoSegment != null && state.cryptoSegment !== '') {
+    const sym = resolveCryptoPathSegment(state.cryptoSegment, cryptoList || []);
+    return { page: 'markets', tab: 'crypto', symbol: sym };
+  }
+  if (tab === 'crypto') return { page: 'markets', tab: 'crypto', symbol: state.symbol || null };
+  return { page: 'markets', tab: 'stocks', symbol: state.symbol || null };
+}
+
+function pathFromState(state, cryptoList = null) {
+  if (!state || state.page === 'home') return '/home';
+  if (state.page === 'playfield') {
+    return state.playfieldResult ? '/playfield/result' : '/playfield';
+  }
+  if (state.page === 'markets') {
+    const tab = state.tab === 'crypto' ? 'crypto' : 'stocks';
+    const base = tab === 'crypto' ? '/crypto' : '/stock';
+    if (tab === 'stocks') {
+      if (!state.symbol) return base;
+      return `${base}/${encodeURIComponent(state.symbol)}`;
+    }
+    if (!state.symbol && state.cryptoSegment)
+      return `${base}/${encodeURIComponent(state.cryptoSegment)}`;
+    if (!state.symbol) return base;
+    const seg = cryptoList ? cryptoPathSegmentForSymbol(state.symbol, cryptoList) : state.symbol;
+    return `${base}/${encodeURIComponent(seg)}`;
+  }
+  return '/home';
+}
+
+function applyView(state) {
+  const { page, tab = 'stocks' } = state || { page: 'home' };
+  const marketsPage = document.getElementById('markets-page');
   const playfield = document.getElementById('playfield');
   const cryptoPlayfield = document.getElementById('crypto-playfield');
   const homeContent = document.getElementById('hero');
   const storySection = document.querySelector('.story-section');
   const personalizePage = document.getElementById('personalize-page');
   const promptToast = document.getElementById('personalize-prompt-toast');
+  const tabStocks = document.getElementById('markets-tab-stocks');
+  const tabCrypto = document.getElementById('markets-tab-crypto');
 
-  document.querySelectorAll('.nav-link').forEach((a) => a.classList.toggle('active', a.dataset.route === route));
+  document.querySelectorAll('.nav-link').forEach((a) => {
+    const r = a.dataset.route;
+    if (!r) return;
+    if (r === 'home') a.classList.toggle('active', page === 'home');
+    else if (r === 'markets') a.classList.toggle('active', page === 'markets');
+    else if (r === 'playfield') a.classList.toggle('active', page === 'playfield');
+  });
 
+  marketsPage?.setAttribute('hidden', '');
   playfield?.setAttribute('hidden', '');
   cryptoPlayfield?.setAttribute('hidden', '');
   personalizePage?.setAttribute('hidden', '');
@@ -158,54 +335,54 @@ function showRoute(route) {
   homeContent?.classList.remove('hidden');
   storySection?.classList.remove('hidden');
 
-  if (route === 'stocks') {
-    playfield?.removeAttribute('hidden');
-    homeContent?.classList.add('hidden');
-    storySection?.classList.add('hidden');
-    window.scrollTo(0, 0);
-  } else if (route === 'crypto') {
-    cryptoPlayfield?.removeAttribute('hidden');
-    homeContent?.classList.add('hidden');
-    storySection?.classList.add('hidden');
-    window.scrollTo(0, 0);
-  } else if (route === 'personalize') {
-    const data = getPersonalizeData();
-    if (data) {
-      homeContent?.classList.add('hidden');
-      storySection?.classList.add('hidden');
-      personalizePage?.removeAttribute('hidden');
-      window.scrollTo(0, 0);
-    } else {
-      homeContent?.classList.remove('hidden');
-      storySection?.classList.remove('hidden');
-      promptToast?.setAttribute('aria-hidden', 'false');
-      const formSection = document.querySelector('.invest-cta-section');
-      setTimeout(() => formSection?.scrollIntoView({ behavior: 'smooth' }), 100);
-    }
-  }
-}
+  const activeMarket = tab === 'crypto' ? 'crypto' : 'stocks';
+  tabStocks?.setAttribute('aria-selected', activeMarket === 'stocks' ? 'true' : 'false');
+  tabCrypto?.setAttribute('aria-selected', activeMarket === 'crypto' ? 'true' : 'false');
+  tabStocks?.classList.toggle('markets-tab-active', activeMarket === 'stocks');
+  tabCrypto?.classList.toggle('markets-tab-active', activeMarket === 'crypto');
 
-function initFloatingExplanationWords() {
-  const el = document.querySelector('.personalize-module-explanation');
-  if (!el) return;
-  const text = el.textContent;
-  const words = text.split(/\s+/);
-  el.innerHTML = words
-    .map((word, i) => {
-      const span = document.createElement('span');
-      span.className = 'personalize-explanation-word';
-      span.style.animationDelay = `${(i % 12) * 0.08}s`;
-      span.textContent = word;
-      return span.outerHTML;
-    })
-    .join(' ');
+  if (page === 'markets') {
+    marketsPage?.removeAttribute('hidden');
+    if (activeMarket === 'crypto') {
+      cryptoPlayfield?.removeAttribute('hidden');
+    } else {
+      playfield?.removeAttribute('hidden');
+    }
+    homeContent?.classList.add('hidden');
+    storySection?.classList.add('hidden');
+    window.scrollTo(0, 0);
+  } else if (page === 'playfield') {
+    homeContent?.classList.add('hidden');
+    storySection?.classList.add('hidden');
+    personalizePage?.removeAttribute('hidden');
+    const isResult = Boolean(state.playfieldResult);
+    personalizePage?.setAttribute('data-playfield-view', isResult ? 'result' : 'form');
+    const investShell = document.querySelector('#personalize-modal .personalize-slide-invest');
+    const resultsShell = document.getElementById('personalize-results');
+    if (isResult) {
+      investShell?.setAttribute('hidden', '');
+      resultsShell?.removeAttribute('hidden');
+    } else {
+      resultsShell?.setAttribute('hidden', '');
+      investShell?.removeAttribute('hidden');
+    }
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => requestAnimationFrame(() => initFloatingSymbolsInvest()));
+  } else {
+    personalizePage?.removeAttribute('data-playfield-view');
+  }
+  document.documentElement.removeAttribute('data-ms-boot');
 }
 
 async function init() {
+  const parsed = parsePath(window.location.pathname);
+  let initialState = rawMarketsStateFromParsed(parsed);
+  applyView(initialState);
+  history.replaceState(initialState, '', pathFromState(initialState, null));
+
   initFloatingSymbols();
   initFloatingSymbolsInvest();
   initScrollAnimations();
-  initFloatingExplanationWords();
 
   const data = await loadData();
   Object.keys(VIZ_REGISTRY).forEach((id) => mountViz(id, data));
@@ -227,16 +404,147 @@ async function init() {
     cryptoPlayfieldApi = initCryptoPlayfield(cryptoPlayfield, { cryptoList });
   }
 
+  initialState = finalizeMarketsRoute(initialState, cryptoList);
+  history.replaceState(initialState, '', pathFromState(initialState, cryptoList));
+
+  if (initialState.page === 'markets') {
+    if (initialState.tab === 'crypto') {
+      if (initialState.symbol) cryptoPlayfieldApi?.selectCrypto?.(initialState.symbol, { syncUrl: false });
+      else cryptoPlayfieldApi?.resetToMain?.();
+    } else if (initialState.symbol) {
+      stockPlayfieldApi?.selectStock?.(initialState.symbol, { syncUrl: false });
+    } else {
+      stockPlayfieldApi?.resetToMain?.();
+    }
+  }
+
   let personalizeModalApi = null;
   if (data.sp500Companies) {
     personalizeModalApi = initPersonalizeModal(data.sp500Companies, data.usStockSymbols || []);
   }
 
-  document.querySelectorAll('.nav-link[data-route]').forEach((a) => {
+  async function syncPlayfieldFromState(state) {
+    const pData = getPersonalizeData();
+    if (state.playfieldResult) {
+      if (!pData) {
+        navigate({ page: 'playfield', playfieldResult: false }, { replace: true });
+        return;
+      }
+      renderPersonalizeProfile(document.getElementById('personalize-profile-summary'), pData);
+      const ok = await personalizeModalApi?.loadAndRender?.(pData, { scrollToResults: true });
+      if (ok === false) {
+        const fe = document.getElementById('invest-form-error');
+        if (fe) {
+          fe.textContent =
+            'Could not load price data for this period. Try a different start date or try again.';
+          fe.removeAttribute('hidden');
+        }
+        navigate({ page: 'playfield', playfieldResult: false }, { replace: true });
+      }
+      return;
+    }
+    personalizeModalApi?.goToSlide?.(0);
+    if (pData) {
+      window.populateFormFromData?.(document.querySelector('.invest-cta-form'), pData);
+    }
+  }
+
+  function afterPersonalizeNav(state) {
+    if (state.page !== 'playfield') return;
+    void syncPlayfieldFromState(state);
+  }
+
+  function syncMarketsFromState(st) {
+    if (st.page !== 'markets') return;
+    if (st.tab === 'crypto') {
+      if (st.symbol) cryptoPlayfieldApi?.selectCrypto?.(st.symbol, { syncUrl: false });
+      else cryptoPlayfieldApi?.resetToMain?.();
+    } else if (st.symbol) {
+      stockPlayfieldApi?.selectStock?.(st.symbol, { syncUrl: false });
+    } else {
+      stockPlayfieldApi?.resetToMain?.();
+    }
+  }
+
+  function navigate(state, { replace = false } = {}) {
+    if (state.page !== 'markets') {
+      const normalized =
+        state.page === 'playfield'
+          ? { page: 'playfield', playfieldResult: Boolean(state.playfieldResult) }
+          : state;
+      const path = pathFromState(normalized, cryptoList);
+      if (replace) history.replaceState(normalized, '', path);
+      else history.pushState(normalized, '', path);
+      applyView(normalized);
+      afterPersonalizeNav(normalized);
+      return;
+    }
+    const merged = {
+      page: 'markets',
+      tab: state.tab || 'stocks',
+      symbol: state.symbol ?? null,
+      ...(state.cryptoSegment ? { cryptoSegment: state.cryptoSegment } : {}),
+    };
+    const normalized = finalizeMarketsRoute(merged, cryptoList);
+    const path = pathFromState(normalized, cryptoList);
+    if (replace) history.replaceState(normalized, '', path);
+    else history.pushState(normalized, '', path);
+    applyView(normalized);
+    syncMarketsFromState(normalized);
+    afterPersonalizeNav(normalized);
+  }
+
+  window.addEventListener('marketscope:syncMarketsUrl', (e) => {
+    const { tab, symbol } = e.detail || {};
+    if (tab !== 'stocks' && tab !== 'crypto') return;
+    const next = finalizeMarketsRoute(
+      { page: 'markets', tab: tab === 'crypto' ? 'crypto' : 'stocks', symbol: symbol || null },
+      cryptoList
+    );
+    const path = pathFromState(next, cryptoList);
+    history.pushState(next, '', path);
+  });
+
+  function showRoute(route) {
+    if (route === 'home') navigate({ page: 'home' });
+    else if (route === 'stocks') navigate({ page: 'markets', tab: 'stocks' });
+    else if (route === 'crypto') navigate({ page: 'markets', tab: 'crypto' });
+    else if (route === 'playfield') navigate({ page: 'playfield' });
+  }
+
+  document.querySelectorAll('a[data-route]').forEach((a) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      showRoute(a.dataset.route);
+      const r = a.dataset.route;
+      if (r === 'home') navigate({ page: 'home' });
+      else if (r === 'markets') navigate({ page: 'markets', tab: 'stocks' });
+      else if (r === 'playfield') navigate({ page: 'playfield' });
     });
+  });
+
+  document.querySelectorAll('.markets-tab').forEach((tabEl) => {
+    tabEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      const t = tabEl.dataset.marketsTab;
+      if (t === 'crypto') navigate({ page: 'markets', tab: 'crypto' });
+      else navigate({ page: 'markets', tab: 'stocks' });
+    });
+  });
+
+  window.addEventListener('popstate', (e) => {
+    const fromPath = parsePath(window.location.pathname);
+    let st =
+      e.state && e.state.page
+        ? { ...e.state }
+        : finalizeMarketsRoute(rawMarketsStateFromParsed(fromPath), cryptoList);
+    if (st.page === 'playfield' && fromPath.page === 'playfield') {
+      st.playfieldResult = Boolean(fromPath.playfieldResult);
+    }
+    if (st.page === 'markets' && !st.tab) st = { ...st, tab: 'stocks' };
+    if (st.page === 'markets') st = finalizeMarketsRoute(st, cryptoList);
+    applyView(st);
+    syncMarketsFromState(st);
+    afterPersonalizeNav(st);
   });
 
   const investForm = document.querySelector('.invest-cta-form');
@@ -280,9 +588,49 @@ async function init() {
     const strategyOptionsEl = document.getElementById('invest-strategy-options');
     const strategyDetailEl = document.getElementById('invest-strategy-detail');
     const strategyDetailListEl = document.getElementById('invest-strategy-detail-list');
+    const strategyCeoCardEl = document.getElementById('invest-strategy-ceo-card');
+    const strategyCeoFrameEl = document.getElementById('invest-strategy-ceo-frame');
+    const strategyCeoImgEl = document.getElementById('invest-strategy-ceo-img');
+    const strategyCeoNameEl = document.getElementById('invest-strategy-ceo-name');
+    const strategyCeoNoteEl = document.getElementById('invest-strategy-ceo-note');
     const strategyHidden = document.getElementById('invest-strategy');
     const strategies = data.strategies || [];
     let selectedStrategyHoldings = null;
+
+    function hideStrategyCeoCard() {
+      strategyCeoCardEl?.setAttribute('hidden', '');
+      if (strategyCeoImgEl) {
+        strategyCeoImgEl.removeAttribute('src');
+        strategyCeoImgEl.alt = '';
+      }
+      if (strategyCeoNameEl) strategyCeoNameEl.textContent = '';
+      if (strategyCeoNoteEl) {
+        strategyCeoNoteEl.textContent = '';
+        strategyCeoNoteEl.setAttribute('hidden', '');
+      }
+      strategyCeoFrameEl?.classList.remove('invest-strategy-ceo-frame--logo');
+    }
+
+    function renderStrategyCeo(strategyId) {
+      const vis = getStrategyCeoVisual(strategyId);
+      if (!vis || !strategyCeoCardEl || !strategyCeoImgEl || !strategyCeoNameEl || !strategyCeoNoteEl || !strategyCeoFrameEl) {
+        hideStrategyCeoCard();
+        return;
+      }
+      const url = getStrategyCeoImageUrl(strategyId);
+      strategyCeoImgEl.src = url || '';
+      strategyCeoImgEl.alt = vis.name;
+      strategyCeoNameEl.textContent = vis.name;
+      strategyCeoFrameEl.classList.toggle('invest-strategy-ceo-frame--logo', !!vis.isLogo);
+      if (vis.note) {
+        strategyCeoNoteEl.textContent = vis.note;
+        strategyCeoNoteEl.removeAttribute('hidden');
+      } else {
+        strategyCeoNoteEl.textContent = '';
+        strategyCeoNoteEl.setAttribute('hidden', '');
+      }
+      strategyCeoCardEl.removeAttribute('hidden');
+    }
 
     function renderStrategyOptions() {
       if (!strategyOptionsEl) return;
@@ -311,10 +659,14 @@ async function init() {
       selectedStrategyHoldings = null;
       if (value === 'best-worst') {
         strategyDetailEl?.setAttribute('hidden', '');
+        hideStrategyCeoCard();
         return;
       }
       const strategy = strategies.find((s) => s.id === value);
-      if (!strategy) return;
+      if (!strategy) {
+        hideStrategyCeoCard();
+        return;
+      }
       const count = Math.min(10, Math.max(1, parseInt(companyCountInput?.value, 10) || 4));
       const holdings = resolveStrategyHoldings(strategy, data.sp500Companies, data.usStockSymbols, count);
       selectedStrategyHoldings = holdings;
@@ -323,6 +675,7 @@ async function init() {
           .map((h) => `<li><strong>${h.symbol}</strong> ${h.name || ''} — ${h.allocPct.toFixed(1)}%</li>`)
           .join('');
         strategyDetailEl.removeAttribute('hidden');
+        renderStrategyCeo(value);
       }
     }
 
@@ -355,8 +708,8 @@ async function init() {
       if (!modeGreeting) return;
       const name = (document.getElementById('invest-name')?.value || '').trim();
       modeGreeting.innerHTML = name
-        ? `Hi, <strong>${name}</strong>! Ready to pick your plays? Invest in your own companies, or let us suggest a strategy.`
-        : 'Ready to pick your plays? Invest in your own companies, or let us suggest a strategy.';
+        ? `Hi, <strong>${name}</strong>! Choose how to build your trial portfolio: pick companies yourself, or use a preset based on well-known funds.`
+        : 'Choose how to build your trial portfolio: pick companies yourself, or use a preset based on well-known funds.';
     }
 
     document.getElementById('invest-name')?.addEventListener('input', updateModeGreeting);
@@ -497,17 +850,19 @@ async function init() {
       }
     });
 
-    investForm.addEventListener('submit', (e) => {
+    investForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       formError?.setAttribute('hidden', '');
       if (!investMode) {
-        formError.textContent = 'Please choose how you want to invest: "Bring it on!" or "Give me some plans".';
+        formError.textContent =
+          'Please choose how you want to invest: "Pick my own companies" or "Use a fund-style strategy".';
         formError.removeAttribute('hidden');
         return;
       }
       const formData = new FormData(investForm);
       const count = Math.min(10, Math.max(1, parseInt(formData.get('company_count'), 10) || 4));
 
+      let saved;
       if (investMode === 'own') {
         const symbols = slotData.filter((s) => s?.symbol).map((s) => s.symbol);
         const allocations = [];
@@ -525,7 +880,7 @@ async function init() {
           formError.removeAttribute('hidden');
           return;
         }
-        savePersonalizeData({
+        saved = {
           name: formData.get('name') || '',
           dob: formData.get('dob'),
           start_mode: formData.get('start_mode'),
@@ -536,7 +891,8 @@ async function init() {
           strategy: 'best-worst',
           invest_mode: 'own',
           selected_symbols: symbols,
-        });
+        };
+        savePersonalizeData(saved);
       } else {
         const strategy = formData.get('strategy') || 'best-worst';
         let selected_symbols = [];
@@ -547,7 +903,7 @@ async function init() {
           selected_symbols = selectedStrategyHoldings.map((h) => h.symbol);
           allocations = selectedStrategyHoldings.map((h) => String(h.allocPct));
         }
-        savePersonalizeData({
+        saved = {
           name: formData.get('name') || '',
           dob: formData.get('dob'),
           start_mode: formData.get('start_mode'),
@@ -559,9 +915,10 @@ async function init() {
           strategy_display_name: strategyDisplayName,
           invest_mode: 'plan',
           selected_symbols,
-        });
+        };
+        savePersonalizeData(saved);
       }
-      showRoute('personalize');
+      navigate({ page: 'playfield', playfieldResult: true });
     });
 
     window.populateFormFromData = function (form, data) {
@@ -622,51 +979,58 @@ async function init() {
         if (startDate) startDate.required = false;
       }
     };
+
+    window.resetInvestPlayfieldForm = function () {
+      if (!investForm) return;
+      investForm.reset();
+      formError?.setAttribute('hidden', '');
+      investMode = null;
+      slotData = [];
+      selectedStrategyHoldings = null;
+      document.querySelectorAll('.invest-mode-btn').forEach((b) => b.removeAttribute('data-active'));
+      customPanel?.setAttribute('hidden', '');
+      strategyPanel?.setAttribute('hidden', '');
+      strategyDetailEl?.setAttribute('hidden', '');
+      hideStrategyCeoCard();
+      if (strategyHidden) strategyHidden.value = 'best-worst';
+      strategyOptionsEl?.querySelectorAll('.invest-strategy-opt').forEach((b) => {
+        b.classList.toggle('selected', b.dataset.value === 'best-worst');
+      });
+      companySlotsContainer && (companySlotsContainer.innerHTML = '');
+      const birthR = investForm.querySelector('input[name="start_mode"][value="birth"]');
+      const dateR = investForm.querySelector('input[name="start_mode"][value="date"]');
+      if (birthR) birthR.checked = true;
+      if (dateR) dateR.checked = false;
+      if (startDateInput) {
+        startDateInput.value = '';
+        startDateInput.required = false;
+      }
+      if (companyCountInput) companyCountInput.value = '4';
+      updateModeGreeting();
+    };
   }
 
   const personalizeRefillBtn = document.getElementById('personalize-refill-btn');
   personalizeRefillBtn?.addEventListener('click', () => {
-    showRoute('home');
-    window.populateFormFromData?.(document.querySelector('.invest-cta-form'), getPersonalizeData());
-    const formSection = document.querySelector('.invest-cta-section');
-    formSection?.scrollIntoView({ behavior: 'smooth' });
+    navigate({ page: 'playfield', playfieldResult: false });
   });
 
   document.getElementById('personalize-clear-btn')?.addEventListener('click', () => {
     clearPersonalizeData();
-    showRoute('home');
+    window.resetInvestPlayfieldForm?.();
+    navigate({ page: 'playfield', playfieldResult: false });
   });
 
   const promptToast = document.getElementById('personalize-prompt-toast');
   const promptScrollBtn = promptToast?.querySelector('.personalize-prompt-scroll');
   promptScrollBtn?.addEventListener('click', () => {
     promptToast?.setAttribute('aria-hidden', 'true');
-    const formSection = document.querySelector('.invest-cta-section');
-    formSection?.scrollIntoView({ behavior: 'smooth' });
+    navigate({ page: 'playfield' });
   });
-
-  document.getElementById('personalize-close-btn')?.addEventListener('click', () => showRoute('home'));
-
-  const originalShowRoute = showRoute;
-  showRoute = function (route) {
-    if (route === 'stocks') stockPlayfieldApi?.resetToMain?.();
-    if (route === 'crypto') cryptoPlayfieldApi?.resetToMain?.();
-    originalShowRoute(route);
-    if (route === 'personalize') {
-      const pData = getPersonalizeData();
-      if (pData) {
-        renderPersonalizeProfile(document.getElementById('personalize-profile-summary'), pData);
-        personalizeModalApi?.loadAndRender?.(pData);
-      }
-    }
-  };
 
   window.addEventListener('marketscope:openStock', (e) => {
     const { symbol } = e.detail || {};
-    if (symbol && stockPlayfieldApi?.selectStock) {
-      showRoute('stocks');
-      stockPlayfieldApi.selectStock(symbol);
-    }
+    if (symbol) navigate({ page: 'markets', tab: 'stocks', symbol });
   });
 
   window.addEventListener('marketscope:goBackToGics', (e) => {
@@ -679,7 +1043,8 @@ async function init() {
     }
   });
 
-  showRoute('home');
+  initConclusionCardTilt();
+  afterPersonalizeNav(initialState);
 }
 
 init().catch((err) => console.error('App init failed:', err));

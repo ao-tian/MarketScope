@@ -167,6 +167,8 @@ export function renderTutorialStockChart(container, options) {
       return t >= minT && t <= maxT;
     });
 
+    const markerY = Math.max(18, Math.round(height * 0.14));
+
     eventLinesGroup.selectAll('*').remove();
     eventCirclesGroup.selectAll('*').remove();
 
@@ -178,7 +180,7 @@ export function renderTutorialStockChart(container, options) {
           .append('line')
           .attr('class', 'tutorial-chart-event-line')
           .attr('x1', cx)
-          .attr('y1', 0)
+          .attr('y1', markerY)
           .attr('x2', cx)
           .attr('y2', height);
 
@@ -186,8 +188,8 @@ export function renderTutorialStockChart(container, options) {
           .append('circle')
           .attr('class', 'tutorial-chart-event-bubble')
           .attr('cx', cx)
-          .attr('cy', 0)
-          .attr('r', 6)
+          .attr('cy', markerY)
+          .attr('r', 8)
           .attr('data-event', JSON.stringify(evt))
           .style('cursor', 'pointer');
 
@@ -270,7 +272,8 @@ export function renderTutorialStockChart(container, options) {
   const whatIfCallout = document.createElement('div');
   whatIfCallout.className = 'tutorial-whatif-callout';
   whatIfCallout.setAttribute('aria-live', 'polite');
-  whatIfCallout.innerHTML = '<span class="tutorial-whatif-label">Drag the brush below to zoom. Click any point to see "what if" return.</span>';
+  whatIfCallout.innerHTML =
+    '<span class="tutorial-whatif-label">Use the <strong>gold brush</strong> under the chart: drag its edges to pick dates and zoom the chart above. Click the chart for a “what if” return. <strong>Reset zoom</strong> shows the full range again.</span>';
   chartWrap.appendChild(whatIfCallout);
 
   overlay.on('click', function (event) {
@@ -349,7 +352,8 @@ export function renderTutorialStockChart(container, options) {
   // Metrics table with ? tooltips
   const hint = document.createElement('p');
   hint.className = 'tutorial-chart-hint';
-  hint.textContent = 'Drag the brush to zoom into a time range. Hover for prices, click for "what if" return, click yellow markers for event details.';
+  hint.textContent =
+    'The brush is the gold mini-timeline below: drag it to focus on part of the range. Hover the main line for prices; click for “what if”; click the gold event dots (along the top band) for story notes.';
   container.appendChild(hint);
 
   metricsWrap.innerHTML = `

@@ -2,9 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function () {
+      var p = (location.pathname || '/').replace(/\/$/, '') || '/';
+      if (p === '/index.html') p = '/home';
+      var boot = '';
+      if (
+        p === '/playfield' ||
+        p === '/personalize' ||
+        p === '/playfield/result' ||
+        p === '/personalize/result'
+      )
+        boot = 'playfield';
+      else if (p === '/crypto' || p.indexOf('/crypto/') === 0) boot = 'crypto';
+      else if (p === '/stock' || p === '/stocks' || p.indexOf('/stock/') === 0 || p.indexOf('/stocks/') === 0)
+        boot = 'stocks';
+      if (boot) document.documentElement.setAttribute('data-ms-boot', boot);
+    })();
+  </script>
+  <style id="ms-route-boot">
+    html[data-ms-boot] #hero { display: none !important; }
+    html[data-ms-boot] .story-section { display: none !important; }
+    html[data-ms-boot="playfield"] #personalize-page { display: block !important; }
+    html[data-ms-boot="stocks"] #markets-page,
+    html[data-ms-boot="stocks"] #playfield { display: block !important; }
+    html[data-ms-boot="crypto"] #markets-page,
+    html[data-ms-boot="crypto"] #crypto-playfield { display: block !important; }
+    html[data-ms-boot="crypto"] #playfield { display: none !important; }
+  </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MarketScope: Stock Playfield & Investing Tutorial</title>
-  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="/css/main.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Fredoka:wght@400;500;600;700&family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
@@ -12,12 +40,11 @@
 <body>
   <nav class="navbar" role="navigation" aria-label="Main navigation">
     <div class="nav-container">
-      <a href="#" class="nav-logo">MARKETSCOPE</a>
+      <a href="/home" class="nav-logo" data-route="home">MARKETSCOPE</a>
       <div class="nav-links">
-        <a href="#" class="nav-link" data-route="home">Home</a>
-        <a href="#" class="nav-link" data-route="stocks">Stocks</a>
-        <a href="#" class="nav-link" data-route="crypto">Cryptocurrency</a>
-        <a href="#" class="nav-link" data-route="personalize">Personalize</a>
+        <a href="/home" class="nav-link" data-route="home">Home</a>
+        <a href="/stock" class="nav-link" data-route="markets">Stock &amp; Crypto</a>
+        <a href="/playfield" class="nav-link" data-route="playfield">Playfield</a>
       </div>
     </div>
   </nav>
@@ -37,7 +64,13 @@
   </header>
 
   <main class="app-main">
-    <section id="playfield" class="playfield-section" hidden>
+    <section id="markets-page" class="markets-page playfield-section" hidden>
+      <div class="playfield-inner markets-page-inner">
+        <div class="markets-tabs" role="tablist" aria-label="Choose stocks or cryptocurrency">
+          <a href="/stock" class="markets-tab" data-markets-tab="stocks" id="markets-tab-stocks" role="tab" aria-selected="true" aria-controls="playfield">Stocks</a>
+          <a href="/crypto" class="markets-tab" data-markets-tab="crypto" id="markets-tab-crypto" role="tab" aria-controls="crypto-playfield">Cryptocurrency</a>
+        </div>
+    <section id="playfield" class="markets-playfield" hidden>
       <div class="playfield-inner">
         <div class="playfield-search">
           <input type="text" class="playfield-search-input" placeholder="Search by symbol or company name (e.g. AAPL, Netflix)..." autocomplete="off" />
@@ -74,7 +107,7 @@
         </div>
       </div>
     </section>
-    <section id="crypto-playfield" class="playfield-section" hidden>
+    <section id="crypto-playfield" class="markets-playfield" hidden>
       <div class="playfield-inner">
         <div class="playfield-search">
           <input type="text" class="playfield-search-input" placeholder="Search by symbol or name (e.g. BTC, Bitcoin)..." autocomplete="off" />
@@ -109,6 +142,8 @@
           <div class="playfield-metrics"></div>
           <div class="playfield-ma-chart" aria-label="15-day and 45-day moving average"></div>
         </div>
+      </div>
+    </section>
       </div>
     </section>
     <div id="event-toast" class="event-toast" role="status" aria-hidden="true"></div>
@@ -158,16 +193,44 @@
       </div>
     </div>
     <section id="section-1" class="story-section story-section-viz-stack">
+      <div id="map-explorer-unified-3" class="map-explorer-unified section-layout-viz map-explorer-unified-expand viz-block viz-block-explainer">
+        <div id="viz-3" class="viz-map-explorer-container stock-explainer-container"></div>
+      </div>
       <div id="map-explorer-unified" class="map-explorer-unified viz-block viz-block-map">
         <div id="viz-1" class="viz-map-explorer-container"></div>
       </div>
       <div id="map-explorer-unified-2" class="map-explorer-unified section-layout-viz viz-block viz-block-timeline">
         <div id="viz-2" class="viz-map-explorer-container"></div>
       </div>
-      <div id="map-explorer-unified-3" class="map-explorer-unified section-layout-viz map-explorer-unified-expand viz-block viz-block-explainer">
-        <div id="viz-3" class="viz-map-explorer-container stock-explainer-container"></div>
+      <div id="story-tutorial-anchor" class="map-explorer-unified section-layout-viz map-explorer-unified-expand viz-block viz-block-explainer"></div>
+      <div class="story-home-closing" role="region" aria-labelledby="story-home-closing-title">
+        <div class="story-home-closing-inner">
+          <p class="story-home-closing-kicker">Nice work</p>
+          <h2 id="story-home-closing-title" class="story-home-closing-title">You've learned the basics!</h2>
+          <p class="story-home-closing-desc">
+            Keep going: explore charts and data for <strong>US stocks</strong> and <strong>cryptocurrency</strong>, or open the investing simulator and see “what if” with your own numbers.
+          </p>
+          <div class="story-home-closing-actions">
+            <a href="/stock" class="story-home-closing-btn story-home-closing-btn--markets" data-route="markets">
+              <span class="story-home-closing-btn-label">Stock &amp; Crypto</span>
+              <span class="story-home-closing-btn-hint">Browse &amp; drill into symbols</span>
+            </a>
+            <a href="/playfield" class="story-home-closing-btn story-home-closing-btn--playfield" data-route="playfield">
+              <span class="story-home-closing-btn-label">Playfield</span>
+              <span class="story-home-closing-btn-hint">Run the investing playground</span>
+            </a>
+          </div>
+          <p class="story-home-closing-footer">Same shortcuts live in the <strong>header</strong> whenever you need them.</p>
+        </div>
       </div>
+    </section>
 
+    <section id="personalize-page" class="personalize-section" hidden>
+      <div id="personalize-modal" class="personalize-modal" role="dialog" aria-label="Your investing playfield">
+        <div class="personalize-money-bg" id="personalize-money-bg" aria-hidden="true"></div>
+        <div class="personalize-modal-inner">
+          <div class="personalize-slides personalize-slides--stack" id="personalize-slides">
+            <div class="personalize-slide personalize-slide-invest" data-slide="0">
       <section class="invest-cta-section" aria-labelledby="invest-cta-heading">
         <div class="invest-cta-background">
           <div class="invest-cta-overlay"></div>
@@ -223,10 +286,10 @@
               </div>
             </div>
             <div class="invest-form-panel invest-form-panel-mode-choice" id="invest-mode-panel">
-              <p class="invest-mode-greeting" id="invest-mode-greeting">Ready to pick your plays? Invest in your own companies, or let us suggest a strategy.</p>
+              <p class="invest-mode-greeting" id="invest-mode-greeting">Choose how to build your trial portfolio: pick companies yourself, or use a preset based on well-known funds.</p>
               <div class="invest-mode-options">
-                <button type="button" class="invest-mode-btn" data-mode="own">Bring it on!</button>
-                <button type="button" class="invest-mode-btn" data-mode="plan">Give me some plans</button>
+                <button type="button" class="invest-mode-btn" data-mode="own">Pick my own companies</button>
+                <button type="button" class="invest-mode-btn" data-mode="plan">Use a fund-style strategy</button>
               </div>
             </div>
             <div class="invest-form-panel invest-form-panel-custom-companies" id="invest-custom-panel" hidden>
@@ -243,8 +306,19 @@
               <p class="invest-form-hint">Pick a fund to mimic its holdings, or use Best &amp; Worst for top/bottom performers.</p>
               <div class="invest-strategy-options" id="invest-strategy-options"></div>
               <div class="invest-strategy-detail" id="invest-strategy-detail" hidden>
-                <h4 class="invest-strategy-detail-title">Selected strategy holdings</h4>
-                <ul class="invest-strategy-detail-list" id="invest-strategy-detail-list"></ul>
+                <div class="invest-strategy-detail-layout">
+                  <div class="invest-strategy-detail-main">
+                    <h4 class="invest-strategy-detail-title">Selected strategy holdings</h4>
+                    <ul class="invest-strategy-detail-list" id="invest-strategy-detail-list"></ul>
+                  </div>
+                  <aside class="invest-strategy-ceo-card" id="invest-strategy-ceo-card" hidden aria-label="Fund figurehead">
+                    <div class="invest-strategy-ceo-frame" id="invest-strategy-ceo-frame">
+                      <img id="invest-strategy-ceo-img" src="" alt="" width="180" height="180" decoding="async" />
+                    </div>
+                    <p class="invest-strategy-ceo-name" id="invest-strategy-ceo-name"></p>
+                    <p class="invest-strategy-ceo-note" id="invest-strategy-ceo-note" hidden></p>
+                  </aside>
+                </div>
               </div>
               <input type="hidden" id="invest-strategy" name="strategy" value="best-worst">
             </div>
@@ -265,52 +339,55 @@
         </form>
         </div>
       </section>
-    </section>
-
-    <section id="personalize-page" class="personalize-section" hidden>
-      <div id="personalize-modal" class="personalize-modal" role="dialog" aria-label="Your personalized results">
-        <div class="personalize-money-bg" id="personalize-money-bg" aria-hidden="true"></div>
-        <button type="button" class="personalize-close" id="personalize-close-btn" aria-label="Close and return home">×</button>
-        <button type="button" class="personalize-nav personalize-nav-left" aria-label="Previous section" tabindex="-1">
-          <span aria-hidden="true">‹</span>
-        </button>
-        <button type="button" class="personalize-nav personalize-nav-right" aria-label="Next section">
-          <span aria-hidden="true">›</span>
-        </button>
-        <div class="personalize-modal-inner">
-          <div class="personalize-slides" id="personalize-slides">
-            <div class="personalize-slide personalize-slide-welcome" data-slide="0">
+            </div>
+            <div id="personalize-results" class="personalize-results" hidden>
+            <div class="personalize-slide personalize-slide-welcome" id="personalize-welcome-anchor" data-slide="1">
               <div class="personalize-profile-summary" id="personalize-profile-summary"></div>
               <div class="personalize-welcome-actions">
                 <button type="button" class="personalize-refill-btn" id="personalize-refill-btn">Update my info</button>
                 <button type="button" class="personalize-clear-btn" id="personalize-clear-btn">Clear info</button>
               </div>
-              <p class="personalize-module-explanation">This module pretends you had a time machine and a crystal ball. We take your money and plop it into US stocks that *later* turned out to be the biggest winners—or the biggest losers. Swipe right to see both scenarios. It’s hindsight in reverse, it’s silly, and it might just teach you something about how wild markets can be. (Not financial advice. We’re not saying you could’ve actually done this.)</p>
             </div>
-            <div class="personalize-slide personalize-slide-best" data-slide="1">
+            <div class="personalize-slide personalize-slide-best" data-slide="2">
               <h2 class="personalize-slide-title">Best case</h2>
               <p class="personalize-slide-subtitle">If you invested in the top performers from your start date</p>
               <div id="personalize-best-viz" class="personalize-viz"></div>
             </div>
-            <div class="personalize-slide personalize-slide-worst" data-slide="2">
+            <div class="personalize-slide personalize-slide-worst" data-slide="3">
               <h2 class="personalize-slide-title">Worst case</h2>
               <p class="personalize-slide-subtitle">If you invested in the biggest decliners from your start date</p>
               <div id="personalize-worst-viz" class="personalize-viz"></div>
             </div>
+            <div class="personalize-slide personalize-slide-conclusion" id="personalize-conclusion-anchor" data-slide="4">
+              <div class="personalize-conclusion-card" role="region" aria-labelledby="personalize-conclusion-heading">
+                <div class="personalize-conclusion-glow" aria-hidden="true"></div>
+                <p class="personalize-conclusion-eyebrow">Takeaway</p>
+                <h2 class="personalize-conclusion-heading" id="personalize-conclusion-heading">The sooner you invest in America’s biggest companies, the richer you can become.</h2>
+                <p class="personalize-conclusion-lead">
+                  The S&amp;P 500 is a basket of many of the country’s largest, most established firms. Over long stretches of history, patient investors who bought and held broad exposure—especially those who <strong>started as early as they could</strong>—have seen compounding turn modest savings into <strong>very, very large</strong> sums. Time in great companies beats waiting for a “perfect” moment.
+                </p>
+                <ul class="personalize-conclusion-highlights">
+                  <li><span class="personalize-conclusion-spark" aria-hidden="true"></span>Earlier start → more years of growth stacking on growth</li>
+                  <li><span class="personalize-conclusion-spark" aria-hidden="true"></span>Diversification across S&amp;P-type names spreads single-stock risk</li>
+                  <li><span class="personalize-conclusion-spark" aria-hidden="true"></span>Consistency beats trying to time every dip and peak</li>
+                </ul>
+                <p class="personalize-conclusion-foot">Educational exercise using historical data—not a prediction, promise, or financial advice.</p>
+              </div>
+            </div>
+            </div>
           </div>
         </div>
-        <div class="personalize-dots" id="personalize-dots" aria-label="Slide navigation"></div>
       </div>
     </section>
 
     <div id="personalize-prompt-toast" class="personalize-prompt-toast" role="dialog" aria-hidden="true">
-      <p class="personalize-prompt-text">Fill in your details below to unlock your personalized experience.</p>
-      <button type="button" class="personalize-prompt-scroll">Go to form</button>
+      <p class="personalize-prompt-text">Open Playfield to enter your details and run the simulation.</p>
+      <button type="button" class="personalize-prompt-scroll">Go to Playfield</button>
     </div>
   </main>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3"></script>
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

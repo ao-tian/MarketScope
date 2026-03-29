@@ -1,6 +1,6 @@
 /**
- * Renders a packed bubble chart. Bubble size = market cap (or value).
- * Colors by sector (stocks) or alternating (crypto).
+ * Packed bubble charts for playfield explorers.
+ * Stocks: size = market cap; color = GICS sector. Crypto preview: size = list rank; color = distinct hues (not categorical).
  * Click a bubble to invoke onSelect(symbol).
  */
 const SECTOR_COLORS = {
@@ -18,6 +18,19 @@ const SECTOR_COLORS = {
   default: '#64748b',
 };
 
+const STOCK_BUBBLE_MAX = 80;
+const CRYPTO_BUBBLE_MAX = 24;
+
+function bubblePackDimensions(containerEl) {
+  const cw = Math.max(320, containerEl?.clientWidth || 960);
+  const sideBySide = cw >= 960;
+  const width = sideBySide
+    ? Math.min(720, Math.max(400, Math.floor((cw - 80) * 0.46)))
+    : Math.min(720, Math.max(300, cw - 48));
+  const height = Math.min(760, Math.max(500, Math.round(width * 0.5)));
+  return { width, height };
+}
+
 export function renderStockBubbles(container, { companies, symbolSet, onSelect }) {
   if (!container || !companies?.length) return;
   container.innerHTML = '';
@@ -31,23 +44,29 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
       value: Math.max(1, +c.Marketcap || 1e9),
     }))
     .sort((a, b) => b.value - a.value)
-    .slice(0, 80);
+    .slice(0, STOCK_BUBBLE_MAX);
 
   if (!available.length) return;
 
-  container.insertAdjacentHTML(
-    'afterbegin',
-    '<p class="playfield-bubble-chart-title">S&P 500 by market cap · Click a bubble to explore</p>'
+  const visual = document.createElement('div');
+  visual.className = 'playfield-bubble-chart-visual';
+  container.appendChild(visual);
+
+  visual.insertAdjacentHTML(
+    'beforeend',
+    `<p class="playfield-bubble-chart-title"><span class="playfield-bubble-chart-n">${STOCK_BUBBLE_MAX}</span> <span class="playfield-bubble-chart-of">of</span> the largest S&amp;P 500 names by market cap (with data in this app) · Click a bubble to explore</p>` +
+      `<p class="playfield-bubble-chart-title-sub"><strong>${available.length}</strong> on this chart${
+        available.length < STOCK_BUBBLE_MAX ? ' — fewer companies have data here' : ''
+      }</p>`
   );
 
-  const width = Math.max(500, container.clientWidth || 600);
-  const height = Math.min(760, Math.max(580, width * 0.48));
+  const { width, height } = bubblePackDimensions(container);
 
   const root = d3.hierarchy({ children: available }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
 
   const svg = d3
-    .select(container)
+    .select(visual)
     .append('svg')
     .attr('class', 'playfield-bubble-svg')
     .attr('width', width)
@@ -95,8 +114,22 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
   node.append('title').text((d) => `${d.data.name} (${d.data.symbol})\n${d.data.sector}`);
 
   const legendData = [...new Set(available.map((a) => a.sector))].filter(Boolean).sort();
+  const totalInUniverse = companies.filter((c) => symbolSet.has(String(c.Symbol || '').toUpperCase())).length;
   const legendEl = d3.select(container).append('div').attr('class', 'playfield-bubble-legend');
-  legendEl.append('p').attr('class', 'playfield-bubble-legend-title').text('Sectors');
+  legendEl
+    .append('div')
+    .attr('class', 'playfield-bubble-legend-body')
+    .html(
+      `<p class="playfield-bubble-legend-intro"><strong>What you’re seeing:</strong> Up to <strong>${STOCK_BUBBLE_MAX}</strong> S&amp;P 500 names, sorted by <strong>market cap</strong> and restricted to tickers we have in this app. ` +
+        `Of the ${totalInUniverse} index names with data here, the chart shows the largest ${available.length}; the rest are omitted so bubbles stay legible. ` +
+        `Use search to open any symbol with data.</p>` +
+        `<ul class="playfield-bubble-legend-list">` +
+        `<li><strong>Color</strong> = <strong>GICS sector</strong> (see key at right).</li>` +
+        `<li><strong>Bubble size</strong> = <strong>market cap</strong> (area scales with cap; bigger bubble = larger company).</li>` +
+        `</ul>` +
+        `<p class="playfield-bubble-legend-cta">Click a bubble to open that stock.</p>`
+    );
+  legendEl.append('p').attr('class', 'playfield-bubble-legend-title').text('Sector colors');
   legendEl
     .append('div')
     .attr('class', 'playfield-bubble-legend-sectors')
@@ -108,34 +141,38 @@ export function renderStockBubbles(container, { companies, symbolSet, onSelect }
       d3.select(this).append('span').attr('class', 'playfield-bubble-legend-swatch').style('background', SECTOR_COLORS[s] || SECTOR_COLORS.default);
       d3.select(this).append('span').attr('class', 'playfield-bubble-legend-label').text(s);
     });
-  legendEl.append('p').attr('class', 'playfield-bubble-legend-note').text('Bubble size = market cap (larger = bigger company) · Click any bubble to explore');
 }
 
 export function renderCryptoBubbles(container, { cryptoList, onSelect }) {
   if (!container || !cryptoList?.length) return;
   container.innerHTML = '';
 
-  container.insertAdjacentHTML(
-    'afterbegin',
-    '<p class="playfield-bubble-chart-title">Cryptocurrencies · Click a bubble to explore</p>'
-  );
+  const visual = document.createElement('div');
+  visual.className = 'playfield-bubble-chart-visual';
+  container.appendChild(visual);
 
   const colors = ['#1e40af', '#dc2626', '#7c3aed', '#16a34a', '#ca8a04', '#0891b2'];
-  const items = cryptoList.slice(0, 24).map((c, i) => ({
+  const maxShow = CRYPTO_BUBBLE_MAX;
+  const items = cryptoList.slice(0, maxShow).map((c, i) => ({
     symbol: c.symbol,
     name: c.name,
-    value: Math.max(1, 100 - i * 4),
+    value: Math.max(1, (maxShow - i) * 8),
     color: colors[i % colors.length],
   }));
 
-  const width = Math.max(500, container.clientWidth || 600);
-  const height = Math.min(640, Math.max(520, width * 0.46));
+  visual.insertAdjacentHTML(
+    'beforeend',
+    `<p class="playfield-bubble-chart-title"><span class="playfield-bubble-chart-n">${CRYPTO_BUBBLE_MAX}</span> <span class="playfield-bubble-chart-of">of</span> our bundled cryptocurrencies (preview) · Click a bubble to explore</p>` +
+      `<p class="playfield-bubble-chart-title-sub"><strong>${items.length}</strong> on this chart</p>`
+  );
+
+  const { width, height } = bubblePackDimensions(container);
 
   const root = d3.hierarchy({ children: items }).sum((d) => d.value);
   d3.pack().size([width, height]).padding(2)(root);
 
   const svg = d3
-    .select(container)
+    .select(visual)
     .append('svg')
     .attr('class', 'playfield-bubble-svg')
     .attr('width', width)
@@ -183,5 +220,16 @@ export function renderCryptoBubbles(container, { cryptoList, onSelect }) {
   node.append('title').text((d) => `${d.data.name} (${d.data.symbol})`);
 
   const legendEl = d3.select(container).append('div').attr('class', 'playfield-bubble-legend');
-  legendEl.append('p').attr('class', 'playfield-bubble-legend-note').text('Bubble size = relative prominence · Click any bubble to explore');
+  legendEl
+    .append('div')
+    .attr('class', 'playfield-bubble-legend-body')
+    .html(
+      `<p class="playfield-bubble-legend-intro"><strong>What you’re seeing:</strong> <strong>${CRYPTO_BUBBLE_MAX}</strong> assets at most from the <strong>curated list</strong> shipped with the app (first entries in our bundled catalog). This chart shows <strong>${items.length}</strong>. ` +
+        `The full searchable list can be longer; the bubble view only previews a subset so layout stays clear.</p>` +
+        `<ul class="playfield-bubble-legend-list">` +
+        `<li><strong>Color</strong> = <strong>rotating palette</strong> so bubbles are easy to tell apart. Colors are <strong>not</strong> a category or performance signal.</li>` +
+        `<li><strong>Bubble size</strong> = <strong>rank in this preview list</strong> (earlier in the bundle → larger bubble). Our static symbol list does not include live market-cap for this chart.</li>` +
+        `</ul>` +
+        `<p class="playfield-bubble-legend-cta">Click a bubble to open that asset.</p>`
+    );
 }
