@@ -551,10 +551,27 @@ async function init() {
   if (investForm) {
     const dobInput = document.getElementById('invest-dob');
     const startDateInput = document.getElementById('invest-start-date');
-    const today = new Date().toISOString().slice(0, 10);
     const LATEST_DATA_DATE = '2017-11-10';
-    if (dobInput) dobInput.setAttribute('max', today);
+    const DOB_MIN_STR = '1900-01-01';
+    /** DOB caps at dataset end so “from birth” has price history through our last close. */
+    const DOB_MAX_STR = LATEST_DATA_DATE;
+    if (dobInput) {
+      dobInput.setAttribute('min', DOB_MIN_STR);
+      dobInput.setAttribute('max', DOB_MAX_STR);
+    }
     if (startDateInput) startDateInput.setAttribute('max', LATEST_DATA_DATE);
+
+    function dobRangeMessage() {
+      return `Date of birth must be between January 1, 1900 and November 10, 2017 (valid range: ${DOB_MIN_STR} to ${DOB_MAX_STR}, matching our stock history).`;
+    }
+
+    function isDobInRange(value) {
+      if (value == null || String(value).trim() === '') return false;
+      const s = String(value).trim();
+      return s >= DOB_MIN_STR && s <= DOB_MAX_STR;
+    }
+
+    const formError = document.getElementById('invest-form-error');
 
     const clampDateYear = (input, minY = 1900, maxY = 2099) => {
       if (!input?.value) return;
@@ -575,7 +592,15 @@ async function init() {
       const newVal = `${clamped}-${m}-${d}`;
       if (input.value !== newVal) input.value = newVal;
     };
-    dobInput?.addEventListener('change', () => clampDateYear(dobInput, 1900, new Date().getFullYear()));
+    dobInput?.addEventListener('change', () => clampDateYear(dobInput, 1900, 2017));
+    dobInput?.addEventListener('input', () => {
+      if (formError && formError.textContent === dobRangeMessage()) {
+        if (isDobInRange(dobInput.value)) {
+          formError.setAttribute('hidden', '');
+          formError.textContent = '';
+        }
+      }
+    });
     startDateInput?.addEventListener('change', () => clampDateYear(startDateInput, 1900, 2017));
 
     const startModeRadios = investForm.querySelectorAll('input[name="start_mode"]');
@@ -689,7 +714,6 @@ async function init() {
     const strategyPanel = document.getElementById('invest-strategy-panel');
     const companySlotsContainer = document.getElementById('invest-company-slots-container');
     const allocationsHint = document.getElementById('invest-allocations-hint');
-    const formError = document.getElementById('invest-form-error');
     let investMode = null;
     let slotData = [];
 
@@ -853,6 +877,15 @@ async function init() {
     investForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       formError?.setAttribute('hidden', '');
+      const dobVal = investForm.querySelector('#invest-dob')?.value;
+      if (!isDobInRange(dobVal)) {
+        if (formError) {
+          formError.textContent = dobRangeMessage();
+          formError.removeAttribute('hidden');
+        }
+        document.getElementById('invest-dob')?.focus();
+        return;
+      }
       if (!investMode) {
         formError.textContent =
           'Please choose how you want to invest: "Pick my own companies" or "Use a fund-style strategy".';

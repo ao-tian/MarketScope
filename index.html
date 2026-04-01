@@ -249,7 +249,8 @@
                 </div>
                 <div class="invest-form-field">
                   <label class="invest-form-label" for="invest-dob">Date of birth</label>
-                  <input type="date" id="invest-dob" name="dob" class="invest-form-input" min="1900-01-01" required>
+                  <input type="date" id="invest-dob" name="dob" class="invest-form-input" min="1900-01-01" required aria-describedby="invest-dob-hint">
+                  <p id="invest-dob-hint" class="invest-date-hint">Valid range: January 1, 1900 through November 10, 2017 (must be on or before the end of our historical stock data).</p>
                 </div>
               </div>
             </div>
