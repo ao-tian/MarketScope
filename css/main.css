@@ -4888,8 +4888,7 @@ h1, h2, h3, h4 {
 
 @media (prefers-reduced-motion: reduce) {
   .personalize-conclusion-glow,
-  .personalize-conclusion-card::after,
-  .personalize-conclusion-spark {
+  .personalize-conclusion-card::after {
     animation: none;
   }
 
@@ -4951,37 +4950,12 @@ h1, h2, h3, h4 {
 
 .personalize-conclusion-spark {
   flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  margin-top: 0.35em;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.4em;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #fef9c3, #d4af37 45%, #166534);
-  box-shadow: 0 0 12px rgba(212, 175, 55, 0.7), 0 0 4px rgba(134, 239, 172, 0.6);
-  animation: personalize-conclusion-spark-twinkle 2.4s ease-in-out infinite alternate;
-}
-
-.personalize-conclusion-highlights li:nth-child(2) .personalize-conclusion-spark {
-  animation-delay: 0.4s;
-}
-
-.personalize-conclusion-highlights li:nth-child(3) .personalize-conclusion-spark {
-  animation-delay: 0.8s;
-}
-
-@keyframes personalize-conclusion-spark-twinkle {
-  0% { transform: scale(1); box-shadow: 0 0 10px rgba(212, 175, 55, 0.55); }
-  100% { transform: scale(1.15); box-shadow: 0 0 18px rgba(212, 175, 55, 0.95), 0 0 8px rgba(134, 239, 172, 0.5); }
-}
-
-.personalize-conclusion-foot {
-  position: relative;
-  z-index: 2;
-  margin: 1.35rem 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.98rem;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.5);
+  background: #d4af37;
+  box-shadow: none;
 }
 
 .personalize-refill-btn {

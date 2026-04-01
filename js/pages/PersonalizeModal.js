@@ -1,5 +1,6 @@
 /**
- * Investing playfield: form on top, scrollable results (welcome + primary scenario + worst case).
+ * Investing playfield: form on top, scrollable results (welcome + primary scenario;
+ * worst-case slide only for the full-market “Best & Worst” strategy, not fund presets or own picks).
  */
 
 import * as DataLoader from '../data/DataLoader.js';
@@ -448,10 +449,10 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
     );
 
     if (bestSection) io.observe(bestSection);
-    if (worstSection) io.observe(worstSection);
+    if (worstSection && !worstSection.hidden) io.observe(worstSection);
     scrollAnimObservers.push(io);
 
-    if (worstSection) {
+    if (worstSection && !worstSection.hidden) {
       worstSectionObserver = new IntersectionObserver(
         (entries) => {
           const hit = entries.some((e) => e.isIntersecting && e.intersectionRatio >= 0.15);
@@ -488,6 +489,8 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
       const initialMoney = parseFloat(data.available_money) || 0;
       const isOwnMode = data.invest_mode === 'own' && data.selected_symbols?.length;
       const isStrategyMode = data.invest_mode === 'plan' && data.strategy && data.strategy !== 'best-worst' && data.selected_symbols?.length;
+      /** Worst-case slide only for “Best & Worst” (full-universe top vs bottom), not own picks or named fund strategies. */
+      const showWorstSlide = !isOwnMode && !isStrategyMode;
 
       const bestVizEl = document.getElementById('personalize-best-viz');
       const worstVizEl = document.getElementById('personalize-worst-viz');
@@ -496,14 +499,13 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
       resultsEl?.removeAttribute('hidden');
 
       bestVizEl.innerHTML = '<p class="personalize-loading">Loading…</p>';
-      worstVizEl.innerHTML = '<p class="personalize-loading">Loading…</p>';
+      worstVizEl.innerHTML = showWorstSlide ? '<p class="personalize-loading">Loading…</p>' : '';
 
       let best;
-      let worst;
+      let worst = [];
       if (isOwnMode || isStrategyMode) {
         const returns = await loadStockReturnsForSymbols(data.selected_symbols, sp500Companies, startDate);
         best = returns;
-        worst = [...returns].sort((a, b) => a.pctChange - b.pctChange).slice(0, companyCount);
         allocations = (data.allocations || []).slice(0, returns.length).map((a) => parseFloat(a) || 0);
         while (allocations.length < best.length) allocations.push(100 / best.length);
       } else {
@@ -512,10 +514,13 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
         worst = [...returns].sort((a, b) => a.pctChange - b.pctChange).slice(0, companyCount);
       }
 
-      const needWorst = !isOwnMode && !isStrategyMode;
-      if (!best.length || (needWorst && !worst.length)) {
+      if (!best.length || (showWorstSlide && !worst.length)) {
         bestVizEl.innerHTML = '<p class="personalize-loading">Not enough price data for this period. Try a different start date.</p>';
-        worstVizEl.innerHTML = '<p class="personalize-loading">Not enough price data for this period. Try a different start date.</p>';
+        if (showWorstSlide) {
+          worstVizEl.innerHTML = '<p class="personalize-loading">Not enough price data for this period. Try a different start date.</p>';
+        } else {
+          worstVizEl.innerHTML = '';
+        }
         resultsEl?.setAttribute('hidden', '');
         investSlideEl?.removeAttribute('hidden');
         disconnectScrollAnimObservers();
@@ -530,7 +535,6 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
       const allocSum = allocsForCalc.reduce((s, x) => s + x, 0);
       const normAllocations = allocSum > 0 ? allocsForCalc.map((a) => (a / allocSum) * 100) : allocsForCalc;
       const symbolToAlloc = new Map(best.map((c, i) => [c.symbol, normAllocations[i]]));
-      const worstAllocations = worst.map((c) => symbolToAlloc.get(c.symbol) ?? 100 / worst.length);
 
       const startDateLabel = startDate ? formatDateLabel(startDate) : '';
 
@@ -541,13 +545,19 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
         finalValue: computePortfolioValue(best, normAllocations, initialMoney) ?? initialMoney,
         startDateLabel,
       };
-      worstData = {
-        companies: worst,
-        allocations: worstAllocations,
-        initialMoney,
-        finalValue: computePortfolioValue(worst, worstAllocations, initialMoney) ?? initialMoney,
-        startDateLabel,
-      };
+
+      if (showWorstSlide && worst.length) {
+        const worstAllocations = worst.map((c) => symbolToAlloc.get(c.symbol) ?? 100 / worst.length);
+        worstData = {
+          companies: worst,
+          allocations: worstAllocations,
+          initialMoney,
+          finalValue: computePortfolioValue(worst, worstAllocations, initialMoney) ?? initialMoney,
+          startDateLabel,
+        };
+      } else {
+        worstData = null;
+      }
 
       const bestTitleEl = document.querySelector('.personalize-slide-best .personalize-slide-title');
       const bestSubEl = document.querySelector('.personalize-slide-best .personalize-slide-subtitle');
@@ -556,24 +566,14 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
       const worstSubEl = worstSlide?.querySelector('.personalize-slide-subtitle');
 
       if (isOwnMode) {
-        if (worstSlide) {
-          worstSlide.hidden = false;
-          if (worstTitleEl) worstTitleEl.textContent = 'Worst case';
-          if (worstSubEl) worstSubEl.textContent = 'Biggest decliners among your selected stocks';
-        }
+        if (worstSlide) worstSlide.hidden = true;
         renderOwnPicksViz(bestVizEl, bestData);
-        renderWorstViz(worstVizEl, worstData);
       } else if (isStrategyMode) {
-        if (worstSlide) {
-          worstSlide.hidden = false;
-          if (worstTitleEl) worstTitleEl.textContent = 'Worst case';
-          if (worstSubEl) worstSubEl.textContent = 'Biggest decliners among that strategy’s holdings';
-        }
+        if (worstSlide) worstSlide.hidden = true;
         const strategyLabel = data.strategy_display_name || (data.strategy || '').replace(/[-_]/g, ' ').replace(/\d{4}-\d{2}-\d{2}/, '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
         if (bestTitleEl) bestTitleEl.textContent = `Strategy picks`;
         if (bestSubEl) bestSubEl.textContent = `How the ${strategyLabel}-style allocation would have performed`;
         renderOwnPicksViz(bestVizEl, bestData);
-        renderWorstViz(worstVizEl, worstData);
       } else {
         if (worstSlide) worstSlide.hidden = false;
         if (bestTitleEl) bestTitleEl.textContent = 'Best case';
@@ -581,7 +581,7 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
         if (worstTitleEl) worstTitleEl.textContent = 'Worst case';
         if (worstSubEl) worstSubEl.textContent = 'If you invested in the biggest decliners from your start date';
         renderBestViz(bestVizEl, bestData);
-        renderWorstViz(worstVizEl, worstData);
+        if (worstData) renderWorstViz(worstVizEl, worstData);
       }
 
       requestAnimationFrame(() => {

@@ -358,7 +358,14 @@ export function initStockPlayfield(container, { symbols, sp500Companies }) {
           });
           let hoverHideTimeout = null;
 
-          function showEventToast(d, hideOnLeave = false, anchorEl = null) {
+          function resolveEventToastAnchorRect(anchor) {
+            if (!anchor) return null;
+            if (typeof anchor.getBoundingClientRect === 'function') return anchor.getBoundingClientRect();
+            if (typeof anchor.left === 'number' && typeof anchor.top === 'number') return anchor;
+            return null;
+          }
+
+          function showEventToast(d, hideOnLeave = false, anchor = null) {
             if (!eventToast) return;
             const dateStr = formatDateLabel(new Date(d.date));
             eventToast.innerHTML = `
@@ -368,8 +375,8 @@ export function initStockPlayfield(container, { symbols, sp500Companies }) {
           <div class="event-toast-date">${dateStr}</div>
           <div class="event-toast-desc">${d.description}</div>
         `;
-            if (anchorEl) {
-              const rect = anchorEl.getBoundingClientRect();
+            const rect = resolveEventToastAnchorRect(anchor);
+            if (rect) {
               const gap = 28;
               const pad = 12;
               const estW = 460;
@@ -456,6 +463,7 @@ export function initStockPlayfield(container, { symbols, sp500Companies }) {
                 e.stopPropagation();
                 if (!eventToast || !currentData || !dataStart || !dataEnd) return;
                 const d = JSON.parse(circle.attr('data-event'));
+                const anchorRect = e.currentTarget.getBoundingClientRect();
                 const evtDate = new Date(d.date);
 
                 previousDateRange = {
@@ -482,7 +490,7 @@ export function initStockPlayfield(container, { symbols, sp500Companies }) {
                 goBackBtn?.removeAttribute('hidden');
                 tutorialEl?.classList.add('playfield-chart-tutorial-hidden');
 
-                showEventToast(d, false);
+                showEventToast(d, false, anchorRect);
               });
             }
           });
