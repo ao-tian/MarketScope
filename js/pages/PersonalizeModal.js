@@ -222,11 +222,11 @@ async function loadStockReturnsForSymbols(symbols, sp500Companies, startDate) {
 async function loadStockReturns(usStockSymbols, sp500Companies, startDate) {
   if (!startDate) return [];
   const startTime = startDate.getTime();
-  const candidateSymbols = buildCandidateSymbols(usStockSymbols, sp500Companies, 500);
+  const candidateSymbols = buildCandidateSymbols(usStockSymbols, sp500Companies, 100);
   if (!candidateSymbols.length) return [];
 
   const results = [];
-  const batchSize = 10;
+  const batchSize = 30;
   for (let i = 0; i < candidateSymbols.length; i += batchSize) {
     const batch = candidateSymbols.slice(i, i + batchSize);
     const loaded = await Promise.all(
@@ -480,6 +480,240 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
     }
   }
 
+  function injectRangeStyles() {
+    if (document.getElementById('prr-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'prr-styles';
+    s.textContent = `
+      .personalize-slide-range { margin-top: 0; }
+      .prr-slide-title {
+        font-family: 'Fredoka', 'Comic Neue', cursive, sans-serif;
+        font-size: clamp(2.55rem, 5vw, 3.35rem);
+        color: var(--accent-gold-light, #f0d78c);
+        margin: 0 0 0.4rem;
+      }
+      .prr-slide-subtitle { font-size: 1.5rem; line-height: 1.45; color: rgba(255,255,255,0.85); margin: 0 0 1rem; }
+      .prr-viz-card { background: rgba(22,27,34,0.6); border-radius: 12px; border: 1px solid rgba(212,175,55,0.3); padding: 1.5rem 1.75rem; }
+      .prr-hero { text-align: center; margin-bottom: 1.5rem; }
+      .prr-hero-label { display: block; font-size: 1.55rem; color: rgba(255,255,255,0.9); margin-bottom: 0.5rem; }
+      .prr-hero-range { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: 0.25rem 0; }
+      .prr-hero-val { font-family: 'Fredoka', 'Comic Neue', cursive, sans-serif; font-size: clamp(2rem, 4vw, 2.8rem); font-weight: 700; line-height: 1; }
+      .prr-hero-sep { font-size: 2rem; color: rgba(255,255,255,0.3); }
+      .prr-hero-desc { font-size: 1.35rem; color: rgba(255,255,255,0.7); margin: 0.75rem auto 0; max-width: 580px; line-height: 1.55; }
+      .prr-chart-wrap { position: relative; width: 100%; margin: 1.25rem 0 1rem; overflow: visible; }
+      .prr-chart-wrap svg { display: block; width: 100%; overflow: visible; }
+      .prr-range-band { fill: rgba(139,92,246,0.18); }
+      .prr-line-best  { fill: none; stroke: #22c55e; stroke-width: 2.5; }
+      .prr-line-worst { fill: none; stroke: #ef4444; stroke-width: 2.5; }
+      .prr-axis text  { fill: rgba(200,190,160,0.7); font-size: 11px; }
+      .prr-axis line, .prr-axis path { stroke: rgba(255,255,255,0.08); }
+      .prr-grid line  { stroke: rgba(255,255,255,0.05); }
+      .prr-hover-line { stroke: rgba(255,255,255,0.2); stroke-width: 1; pointer-events: none; }
+      .prr-tooltip-box { position: absolute; display: none; background: rgba(14,17,23,0.97); border: 1px solid rgba(212,175,55,0.2); border-radius: 10px; padding: 12px 16px; font-size: 1.1rem; color: #fff; pointer-events: none; z-index: 20; min-width: 175px; white-space: nowrap; }
+      .prr-tt-date { font-size: 1rem; color: rgba(255,255,255,0.45); margin: 0 0 8px; }
+      .prr-tt-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin: 4px 0; }
+      .prr-tt-sep { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; margin-top: 4px; }
+      .prr-tt-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .prr-tt-dot-best  { background: #22c55e; }
+      .prr-tt-dot-worst { background: #ef4444; }
+      .prr-tt-dot-range { background: #8b5cf6; }
+      .prr-legend { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 1.1rem; color: rgba(255,255,255,0.5); }
+      .prr-leg-item { display: flex; align-items: center; gap: 7px; }
+      .prr-leg-line { width: 22px; height: 2.5px; border-radius: 2px; flex-shrink: 0; }
+      .prr-leg-best  { background: #22c55e; }
+      .prr-leg-worst { background: #ef4444; }
+      .prr-leg-swatch { width: 22px; height: 13px; border-radius: 3px; background: rgba(139,92,246,0.35); flex-shrink: 0; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function renderRangeViz(bestData, worstData) {
+    if (!bestData || !worstData) return;
+    injectRangeStyles();
+    let el = document.getElementById('personalize-range-viz');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'personalize-range-viz';
+      el.className = 'personalize-slide personalize-slide-range';
+      const worstSlide = document.querySelector('.personalize-slide-worst');
+      if (worstSlide && worstSlide.parentNode) {
+        worstSlide.parentNode.insertBefore(el, worstSlide.nextSibling);
+      } else {
+        document.getElementById('personalize-results')?.appendChild(el);
+      }
+    }
+    el.hidden = false;
+    const { companies: bestCos, allocations: bestAllocs, initialMoney, startDateLabel } = bestData;
+    const { companies: worstCos, allocations: worstAllocs } = worstData;
+
+    const spineHist = bestCos.reduce(
+      (a, c) => (c.priceHistory?.length ?? 0) > (a.priceHistory?.length ?? 0) ? c : a,
+      bestCos[0]
+    );
+    const fullLen = spineHist?.priceHistory?.length ?? 0;
+    if (!fullLen) return;
+    const thinStep = Math.max(1, Math.floor(fullLen / 200));
+    const histIndices = [];
+    for (let i = 0; i < fullLen; i += thinStep) histIndices.push(i);
+    if (histIndices[histIndices.length - 1] !== fullLen - 1) histIndices.push(fullLen - 1);
+
+    function buildThinSeries(companies, allocations) {
+      return histIndices.map((i) => {
+        let val = 0;
+        companies.forEach((c, ci) => {
+          const hist = c.priceHistory;
+          if (!hist?.length) return;
+          const base = hist[0] || 1;
+          const price = hist[Math.min(i, hist.length - 1)];
+          const w = (allocations[ci] ?? 100 / companies.length) / 100;
+          val += w * (price / base);
+        });
+        return initialMoney * val;
+      });
+    }
+
+    let bRaw = buildThinSeries(bestCos, bestAllocs);
+    let wRaw = buildThinSeries(worstCos, worstAllocs);
+    for (let i = 0; i < bRaw.length; i++) {
+      if (bRaw[i] < wRaw[i]) {
+        const tmp = bRaw[i];
+        bRaw[i] = wRaw[i];
+        wRaw[i] = tmp;
+      }
+    }
+
+    const startDate = bestCos[0]?.startDate;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const pts = histIndices.map((i, j) => ({
+      date: startDate ? new Date(startDate.getTime() + i * DAY_MS) : new Date(2000 + Math.floor(i / 252), 0, 1),
+      best: bRaw[j],
+      worst: wRaw[j],
+    }));
+
+    const bestFinal = bRaw[bRaw.length - 1];
+    const worstFinal = wRaw[wRaw.length - 1];
+    const bestPct = ((bestFinal / initialMoney - 1) * 100).toFixed(1);
+    const worstPct = ((worstFinal / initialMoney - 1) * 100).toFixed(1);
+    const fmtD = (v) => '$' + Math.round(v).toLocaleString();
+    const approxYrs = (fullLen / 252).toFixed(1);
+    el.innerHTML = `
+      <h2 class="prr-slide-title">Return range</h2>
+      <p class="prr-slide-subtitle">Best and worst-case outcomes over the same ${approxYrs}-year period, side by side.</p>
+      <div class="prr-viz-card">
+        <div class="prr-hero">
+          <span class="prr-hero-label">Your portfolio would be worth between</span>
+          <div class="prr-hero-range">
+            <span class="prr-hero-val" style="color:#ef4444">${fmtD(worstFinal)}</span>
+            <span class="prr-hero-sep">—</span>
+            <span class="prr-hero-val" style="color:#22c55e">${fmtD(bestFinal)}</span>
+          </div>
+          <p class="prr-hero-desc">
+            Starting from ${fmtD(initialMoney)}${startDateLabel ? ` on ${startDateLabel}` : ''}.
+            Best case: <strong style="color:#22c55e">+${bestPct}%</strong>
+            &nbsp;·&nbsp;
+            Worst case: <strong style="color:#ef4444">${parseFloat(worstPct) >= 0 ? '+' : ''}${worstPct}%</strong>
+          </p>
+        </div>
+        <div class="prr-chart-wrap" id="prrChartWrap">
+          <div class="prr-tooltip-box" id="prrTooltip" aria-hidden="true">
+            <p class="prr-tt-date" id="prrTtDate"></p>
+            <div class="prr-tt-row"><span class="prr-tt-dot prr-tt-dot-best"></span><span>Best</span><strong id="prrTtBest"></strong></div>
+            <div class="prr-tt-row"><span class="prr-tt-dot prr-tt-dot-worst"></span><span>Worst</span><strong id="prrTtWorst"></strong></div>
+            <div class="prr-tt-row prr-tt-sep"><span class="prr-tt-dot prr-tt-dot-range"></span><span>Range</span><strong id="prrTtRange"></strong></div>
+          </div>
+        </div>
+        <div class="prr-legend">
+          <span class="prr-leg-item"><span class="prr-leg-line prr-leg-best"></span>Best case</span>
+          <span class="prr-leg-item"><span class="prr-leg-line prr-leg-worst"></span>Worst case</span>
+          <span class="prr-leg-item"><span class="prr-leg-swatch"></span>Possible range</span>
+        </div>
+      </div>
+    `;
+    const d3 = window.d3;
+    if (!d3) {
+      console.warn('renderRangeViz: d3 not found');
+      return;
+    }
+    const wrap = el.querySelector('#prrChartWrap');
+    const tooltip = el.querySelector('#prrTooltip');
+    const margin = { top: 12, right: 24, bottom: 36, left: 64 };
+    const totalW = wrap.clientWidth || 700;
+    const totalH = 300;
+    const W = totalW - margin.left - margin.right;
+    const H = totalH - margin.top - margin.bottom;
+    const svg = d3
+      .select(wrap)
+      .append('svg')
+      .attr('width', totalW)
+      .attr('height', totalH)
+      .attr('viewBox', `0 0 ${totalW} ${totalH}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const xScale = d3.scaleTime().domain(d3.extent(pts, (d) => d.date)).range([0, W]);
+    const allVals = pts.flatMap((d) => [d.best, d.worst]);
+    const yScale = d3
+      .scaleLinear()
+      .domain([Math.min(...allVals) * 0.95, Math.max(...allVals) * 1.05])
+      .nice()
+      .range([H, 0]);
+    g.append('g')
+      .attr('class', 'prr-grid')
+      .call(d3.axisLeft(yScale).ticks(5).tickSize(-W).tickFormat(''))
+      .call((gg) => gg.select('.domain').remove());
+    const fmtY = (v) => (v >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : '$' + (v / 1000).toFixed(0) + 'K');
+    g.append('g').attr('class', 'prr-axis').attr('transform', `translate(0,${H})`).call(d3.axisBottom(xScale).ticks(6).tickSize(4));
+    g.append('g').attr('class', 'prr-axis').call(d3.axisLeft(yScale).ticks(5).tickSize(4).tickFormat(fmtY));
+    const area = d3
+      .area()
+      .x((d) => xScale(d.date))
+      .y0((d) => yScale(d.worst))
+      .y1((d) => yScale(d.best))
+      .curve(d3.curveMonotoneX);
+    g.append('path').datum(pts).attr('class', 'prr-range-band').attr('d', area);
+    const lineFn = d3.line().curve(d3.curveMonotoneX);
+    g.append('path')
+      .datum(pts)
+      .attr('class', 'prr-line-worst')
+      .attr('d', lineFn.x((d) => xScale(d.date)).y((d) => yScale(d.worst)));
+    g.append('path')
+      .datum(pts)
+      .attr('class', 'prr-line-best')
+      .attr('d', lineFn.x((d) => xScale(d.date)).y((d) => yScale(d.best)));
+    const hoverLine = g.append('line').attr('class', 'prr-hover-line').attr('y1', 0).attr('y2', H).style('display', 'none');
+    const bisect = d3.bisector((d) => d.date).left;
+    svg
+      .append('rect')
+      .attr('x', margin.left)
+      .attr('y', margin.top)
+      .attr('width', W)
+      .attr('height', H)
+      .attr('fill', 'transparent')
+      .on('mousemove', function (event) {
+        const mx = d3.pointer(event, this)[0];
+        const date = xScale.invert(mx - margin.left);
+        const i = Math.max(0, Math.min(pts.length - 1, bisect(pts, date)));
+        const pt = pts[i];
+        hoverLine.attr('x1', xScale(pt.date)).attr('x2', xScale(pt.date)).style('display', null);
+        el.querySelector('#prrTtDate').textContent = pt.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+        el.querySelector('#prrTtBest').textContent = fmtD(pt.best);
+        el.querySelector('#prrTtWorst').textContent = fmtD(pt.worst);
+        el.querySelector('#prrTtRange').textContent = fmtD(pt.best - pt.worst);
+        const wr = wrap.getBoundingClientRect();
+        let lx = event.clientX - wr.left + 14;
+        const ly = event.clientY - wr.top - 60;
+        if (lx + 190 > wr.width) lx -= 210;
+        tooltip.style.left = `${lx}px`;
+        tooltip.style.top = `${ly}px`;
+        tooltip.style.display = 'block';
+        tooltip.setAttribute('aria-hidden', 'false');
+      })
+      .on('mouseleave', function () {
+        hoverLine.style('display', 'none');
+        tooltip.style.display = 'none';
+        tooltip.setAttribute('aria-hidden', 'true');
+      });
+  }
+
   return {
     async loadAndRender(data, options = {}) {
       const { scrollToResults = false } = options;
@@ -567,9 +801,13 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
 
       if (isOwnMode) {
         if (worstSlide) worstSlide.hidden = true;
+        const rrOwn = document.getElementById('personalize-range-viz');
+        if (rrOwn) rrOwn.hidden = true;
         renderOwnPicksViz(bestVizEl, bestData);
       } else if (isStrategyMode) {
         if (worstSlide) worstSlide.hidden = true;
+        const rrStrat = document.getElementById('personalize-range-viz');
+        if (rrStrat) rrStrat.hidden = true;
         const strategyLabel = data.strategy_display_name || (data.strategy || '').replace(/[-_]/g, ' ').replace(/\d{4}-\d{2}-\d{2}/, '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
         if (bestTitleEl) bestTitleEl.textContent = `Strategy picks`;
         if (bestSubEl) bestSubEl.textContent = `How the ${strategyLabel}-style allocation would have performed`;
@@ -582,6 +820,7 @@ export function initPersonalizeModal(sp500Companies, usStockSymbols = []) {
         if (worstSubEl) worstSubEl.textContent = 'If you invested in the biggest decliners from your start date';
         renderBestViz(bestVizEl, bestData);
         if (worstData) renderWorstViz(worstVizEl, worstData);
+        if (worstData) renderRangeViz(bestData, worstData);
       }
 
       requestAnimationFrame(() => {
