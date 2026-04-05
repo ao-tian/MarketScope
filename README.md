@@ -13,27 +13,43 @@
 
 ---
 
-## Links
+## URLs (live site, video, process book)
 
-| Resource | URL |
-|----------|-----|
-| **Deployed app (Railway)** | https://marketscope-production-91bb.up.railway.app |
-| **Process book (Google Doc)** | [CSC316 Process Book — The Chartwatchers](https://docs.google.com/document/d/1cEg_CTqo_cMjOTEWV8eM-T4vcistCgoRu46zFz00N7c/edit?usp=sharing) |
-| **Walkthrough video (Loom)** | *Add your Loom link when ready* |
+Course staff can open these directly:
+
+| | |
+|--|--|
+| **Deployed website** | https://marketscope-production-91bb.up.railway.app |
+| **Screencast / walkthrough (Loom)** | https://loom.com/share/5cd37980be884e53b0adb6494b61d5af |
+| **Process book (Google Doc)** | https://docs.google.com/document/d/1cEg_CTqo_cMjOTEWV8eM-T4vcistCgoRu46zFz00N7c/edit?usp=sharing |
+
+---
+
+## Overview of what you are handing in
+
+This submission is a **static web application** plus **cleaned datasets**. The following table separates **our work** from **third-party libraries** and **data files**.
+
+| Category | What it is | Where it lives |
+|----------|------------|----------------|
+| **Our application code** | HTML structure, all CSS, and JavaScript (routing, charts, Playfield logic, loaders, utilities, tutorial visualizations). | Root `index.html`, `css/main.css`, everything under `js/` |
+| **Third-party libraries** | Not vendored in the repo. **D3 v7** and **topojson-client v3** are loaded from public CDNs via `<script>` tags in `index.html`. **Google Fonts** are loaded from Google’s stylesheet. We did not write those libraries. | Declared in `index.html` (see script `src=` / `href=` URLs) |
+| **Local dev tool** | **`serve`** (Vercel) is only used when you run `npx serve -s .`; it is not bundled in the project. | Installed on demand by npm when you run that command |
+| **Data** | Cleaned CSV/JSON and related files used at runtime (stock OHLCV, symbols, crypto series, S&P listings, GICS, events, strategies, macro, etc.). We prepared and wired these files; original sources have their own licenses. | Folder **`data/`** |
+| **Documentation** | This README. | `README.md` |
+
+There is **no server-side application code** in this repository: there is no custom API or database. The deployed site is **static files** plus client-side JavaScript.
 
 ---
 
 ## What this project is
 
-**MarketScope** is a browser-based investing education experience: a guided **tutorial** on the home page, interactive **stock and cryptocurrency** exploration with charts and metrics, and an **Investing Playfield** that runs personalized historical simulations (best vs. worst scenarios, optional fund-style strategies, and a **return-range** chart on the full “Best & Worst” path).
-
-This repository is the **full source**: markup, styling, client-side logic, and bundled datasets. There is **no backend API** in the repo—the app runs in the **browser** once assets are served. **Cleaned data** lives under **`data/`** (CSV/JSON); if you need a separate archive for size limits, mirror that folder to cloud storage and note it in your own materials.
+**MarketScope** is a browser-based investing education experience built by **The Chartwatchers**: a guided **tutorial** on the home page, interactive **stock and cryptocurrency** exploration with charts and metrics, and an **Investing Playfield** that runs personalized historical simulations (best vs. worst scenarios, optional fund-style strategies, and a **return-range** chart on the full “Best & Worst” path).
 
 ---
 
-## Deployment (Railway)
+## Deployment
 
-Production is on **Railway** with **SPA fallback** so routes like `/playfield` and `/stock/AAPL` resolve to `index.html` (same idea as `serve -s` locally).
+Production runs on **Railway** with **SPA (single-page) fallback** so client-side routes such as `/playfield`, `/stock/AAPL`, and `/crypto/...` resolve to `index.html` instead of 404—same behavior as running `npx serve -s .` locally.
 
 ---
 
@@ -49,11 +65,11 @@ Open the URL shown in the terminal (often `http://localhost:3000`).
 
 ### Why `npx serve -s .` and not plain `npx serve`?
 
-The app uses **client-side routes** (e.g. `/playfield`, `/stock/AAPL`, `/crypto/...`). **Without `-s`**, the static server treats those URLs as files and returns **404** on refresh or direct visits. **`-s`** enables single-page mode: requests that don’t match a static file are served **`index.html`**, and the router handles the path.
+The app uses **client-side routes** (e.g. `/playfield`, `/stock/AAPL`, `/crypto/...`). **Without `-s`**, many static servers return **404** on refresh or direct visits to those paths. **`-s`** enables single-page mode: requests that do not match a static file are served **`index.html`**, and our router handles the path.
 
-The **`.`** means “serve this folder” (the repo root).
+The **`.`** means “serve this folder” (the repository root).
 
-### Quick route reference
+### Route reference
 
 | Path | Purpose |
 |------|---------|
@@ -64,55 +80,66 @@ The **`.`** means “serve this folder” (the repo root).
 
 ---
 
-## Interface notes (non-obvious behavior)
+## Non-obvious interface features
 
-- **URL sync:** Stock/crypto views update the address bar; reload only works when the host serves SPA fallback (`serve -s`, Railway, etc.).
-- **Gold event markers:** Hover for a quick summary; click zooms the chart around that event and enables **Go back**. The event panel is anchored **near the dot**, not the corner of the viewport.
-- **Moving averages:** Secondary chart plus a **Learn more** modal (15-day vs 45-day, golden/death cross vocabulary).
-- **Playfield:** **Worst-case** slide and **Return range** chart apply to the full-market **Best & Worst** strategy; named fund strategies and custom picks use other layouts so framing stays clear.
-- **Dates:** Playfield inputs are constrained to the **historical range** of our stock data where required so simulations stay meaningful.
+These behaviors are not obvious from a single screenshot; they matter for grading **interaction** and **polish**.
 
----
+1. **Client-side routing and reload**  
+   The address bar updates when you open stocks, crypto, or Playfield (e.g. `/stock/AAPL`). **Refreshing** or **pasting** that URL only works if the host serves **`index.html`** for unknown paths (Railway is configured for that; locally use `serve -s`). Plain static hosting without SPA fallback will show **404** on those URLs.
 
-## What is our code vs. libraries vs. data
+2. **Financial event markers (gold dots) on stock/crypto charts**  
+   Markers tie price action to **historical event windows**. **Hover** shows a summary; **click** zooms the chart to a band around that event and reveals **Go back** to restore the previous date range. After a click, the chart **re-renders**; the event detail panel is positioned using the **dot’s screen position** so it stays **near the marker**, not fixed to the corner of the page.
 
-### Written and integrated by The Chartwatchers
+3. **Moving averages**  
+   A secondary chart shows **15-day and 45-day** MAs. A **Learn more** modal explains how to read the lines and defines **golden cross** / **death cross** in plain language (educational, not trading advice).
 
-| Area | What we did |
-|------|-------------|
-| **Application shell** | `index.html` — layout, navigation, route bootstrapping, form structure, accessibility hooks. |
-| **Styling** | `css/main.css` — full UI: landing, tutorial, markets, Playfield, modals, responsive layout. |
-| **Routing & state** | `js/main.js` — client-side navigation, URL sync, markets tabs, personalize form validation and persistence, viz mounting. |
-| **Markets** | `js/pages/StockPlayfield.js`, `CryptoPlayfield.js` — search, trending, bubbles, price charts, date filters, event markers, moving averages, metrics. |
-| **Playfield** | `js/pages/PersonalizeModal.js` — returns loading, best/worst and strategy modes, portfolio math, animations, return-range visualization. |
-| **Tutorial & maps** | `js/viz/vis1/*` — maps, explainer, GICS, tutorial charts. |
-| **Layout & motion** | `js/layout/FloatingSymbols.js`, `ScrollAnimations.js`. |
-| **Utilities** | `js/utils/*` — bubble charts, MA chart, playfield brush, metric copy, strategy figureheads, etc. |
-| **Data loading** | `js/data/DataLoader.js`, `strategyLoader.js`. |
-| **Datasets** | **`data/`** — symbols, OHLCV, S&P metadata, crypto, events, strategies, macro series, etc. |
+4. **Playfield modes and what you see**  
+   Users can **allocate to their own picks** or choose **fund-style strategies** with preset holdings. The **worst-case** slide and the **Return range** band chart (best vs. worst portfolio paths over time) are shown for the full-market **“Best & Worst”** strategy path. **Named fund strategies** and **fully custom allocations** use other result layouts so we do not imply the same “universe worst” story when the user did not pick from the full market.
 
-### Third-party libraries (not our code)
+5. **Playfield dates**  
+   Date of birth and related fields are constrained to the **historical coverage** of our stock data so simulations do not silently return empty or meaningless results.
 
-| Piece | Role |
-|-------|------|
-| **[D3](https://d3js.org/) v7** | Visualization primitives (CDN in `index.html`). |
-| **[topojson-client](https://github.com/topojson/topojson-client) v3** | Map / topology helpers (CDN). |
-| **[Google Fonts](https://fonts.google.com/)** | Typography (linked in `index.html`). |
-| **`npx serve`** ([serve](https://github.com/vercel/serve)) | **Local dev only** — static server with `-s` for SPA. |
-
-We **do not** ship `node_modules`; production loads D3 and TopoJSON from URLs in `index.html`.
-
-### Data provenance
-
-Files under **`data/`** were integrated and cleaned for this app; upstream licenses apply to original sources.
+6. **Search scope**  
+   The stock search indexes **symbols present in our bundled list** (`data/US_Stocks/symbols.json`); it is not a live feed of every U.S. listing. Results are capped (e.g. up to 50 suggestions) for responsiveness.
 
 ---
 
-## Feature overview
+## Our code vs. libraries vs. data (detail)
 
-- **Home:** Hero, story sections, S&P map, time scrubber, stock explainer (GICS, sectors).
-- **Stock & Crypto:** Search, bubbles, price history, financial event markers, moving averages, metrics.
-- **Playfield:** Personal inputs, own allocations vs. fund-style strategies, best/worst and return-range views where applicable, educational framing.
+### Written by The Chartwatchers
+
+| Area | Contents |
+|------|----------|
+| **Shell** | `index.html` — layout, navigation, route bootstrapping, forms, CDN script tags. |
+| **Styles** | `css/main.css` — full UI. |
+| **App & routing** | `js/main.js` — navigation, URL sync, markets tabs, personalize form validation and persistence, viz registry. |
+| **Markets** | `js/pages/StockPlayfield.js`, `CryptoPlayfield.js` — search, trending, bubbles, price charts, events, MAs, metrics. |
+| **Playfield** | `js/pages/PersonalizeModal.js` — loading returns, modes, portfolio math, animations, return-range chart. |
+| **Tutorial / maps** | `js/viz/vis1/*`, `js/data/*` loaders, `js/layout/*`. |
+| **Utilities** | `js/utils/*` — charts helpers, metric copy, strategy figureheads, etc. |
+| **Bundled data** | Everything under **`data/`** referenced by the loaders. |
+
+### Third-party libraries (we did not author; loaded from the network)
+
+Scripts linked from `index.html` include (exact URLs are in that file):
+
+- **D3** — https://d3js.org/ (v7 bundle used for scales, axes, paths, brushes, Playfield range chart).
+- **TopoJSON client** — https://unpkg.com/topojson-client@3 (map topology helpers).
+- **Google Fonts** — https://fonts.googleapis.com (font CSS for Sora, DM Sans, Playfair Display, Fredoka, Comic Neue).
+
+We **do not** commit `node_modules`. Production relies on those CDN requests succeeding in the browser.
+
+### Data
+
+All cleaned inputs shipped with the app are under **`data/`**. Original market and macro sources are subject to their own terms; we integrated and shaped files for this project.
+
+---
+
+## Feature summary
+
+- **Home:** Hero, scroll story, S&P map, founding-year scrubber, stock/GICS explainer and linked chart material.
+- **Stock & Crypto:** Symbol search (within bundled universe), bubble view, adjustable date range, event markers, moving averages, metrics.
+- **Playfield:** Personal inputs, custom vs. strategy modes, best/worst and optional return-range visualization, educational copy.
 
 ---
 
